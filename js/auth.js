@@ -1,0 +1,177 @@
+// js/auth.js – Registration & Login logic (all comments in English)
+// ---------------------------------------------------------------
+// Responsibilities:
+//  1. Persist users in localStorage (including default "testuser"/p)
+//  2. Validate registration form (password strength, email, etc.)
+//  3. Handle login, store current user, then show config screen
+//  4. Wire nav buttons + About dialog behaviour
+// ---------------------------------------------------------------
+
+import { showScreen } from './utils.js';
+
+const USERS_KEY = 'gi_users';
+const CURRENT_USER_KEY = 'gi_current_user';
+
+/* ============================================================
+   Helpers – load / save users
+   ============================================================ */
+function loadUsers() {
+  const raw = localStorage.getItem(USERS_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+function saveUsers(arr) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(arr));
+}
+
+/* ============================================================
+   Ensure demo user exists (username: testuser, pass: p)
+   ============================================================ */
+(function ensureDefaultUser() {
+  const users = loadUsers();
+  if (!users.some(u => u.username === 'p')) {
+    users.push({
+      username: 'p',
+      password: 'testuser',
+      firstName: 'Test',
+      lastName: 'User',
+      email: 'test@example.com',
+      dob: '2000-01-01'
+    });
+    saveUsers(users);
+  }
+})();
+
+/* ============================================================
+   Inject Register & Login markup (keeps index.html minimal)
+   ============================================================ */
+const registerSec = document.getElementById('register');
+registerSec.innerHTML = `
+  <h2>Register</h2>
+  <form id="registerForm">
+    <input name="username"  placeholder="Username" required>
+    <input type="password" name="password" placeholder="Password" required>
+    <input type="password" name="confirm"  placeholder="Confirm Password" required>
+    <input name="firstName" placeholder="First Name" required>
+    <input name="lastName"  placeholder="Last Name" required>
+    <input type="email" name="email" placeholder="Email" required>
+    <input type="date"  name="dob" required>
+    <button>Sign Up</button>
+  </form>
+  <p id="regError" class="error"></p>`;
+
+const loginSec = document.getElementById('login');
+loginSec.innerHTML = `
+  <h2>Login</h2>
+  <form id="loginForm">
+    <input name="username" placeholder="Username" required>
+    <input type="password" name="password" placeholder="Password" required>
+    <button>Login</button>
+  </form>
+  <p id="loginError" class="error"></p>`;
+
+/* ============================================================
+   Event listeners for forms
+   ============================================================ */
+
+document.getElementById('registerForm').addEventListener('submit', handleRegister);
+document.getElementById('loginForm').addEventListener('submit', handleLogin);
+
+function handleRegister(e) {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  const err = document.getElementById('regError');
+  err.textContent = '';
+
+  /* -------- validations -------- */
+  const users = loadUsers();
+  if (users.some(u => u.username === data.username)) {
+    err.textContent = 'Username already exists';
+    return;
+  }
+  const pwdRe = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+  if (!pwdRe.test(data.password)) {
+    err.textContent = 'Password must be ≥8 chars and include letters & numbers';
+    return;
+  }
+  if (data.password !== data.confirm) {
+    err.textContent = 'Passwords do not match';
+    return;
+  }
+  const nameRe = /^[A-Za-zא-ת]+$/;
+  if (!nameRe.test(data.firstName) || !nameRe.test(data.lastName)) {
+    err.textContent = 'Names must contain letters only';
+    return;
+  }
+  if (!/^\S+@\S+\.\S+$/.test(data.email)) {
+    err.textContent = 'Invalid email';
+    return;
+  }
+
+  // save new user
+  users.push({
+    username: data.username,
+    password: data.password,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    email: data.email,
+    dob: data.dob
+  });
+  saveUsers(users);
+  alert('Registration successful! Please log in.');
+  showScreen('login');
+  e.target.reset();
+}
+
+function handleLogin(e) {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  const err = document.getElementById('loginError');
+  err.textContent = '';
+
+  const user = loadUsers().find(u => u.username === data.username && u.password === data.password);
+  if (!user) {
+    err.textContent = 'Invalid username or password';
+    return;
+  }
+  localStorage.setItem(CURRENT_USER_KEY, user.username);
+  showScreen('config');
+  e.target.reset();
+}
+
+/* ============================================================
+   Navigation buttons & About dialog
+   ============================================================ */
+document.querySelectorAll('nav button[data-screen]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.screen === 'about') {
+      document.getElementById('aboutDialog').showModal();
+      return;
+    }
+    if (btn.dataset.screen === 'login' && localStorage.getItem(CURRENT_USER_KEY)) {
+      showScreen('config');
+    } else {
+      showScreen(btn.dataset.screen);
+    }
+  });
+});
+
+// close About dialog (ESC, X, or click outside)
+const aboutDlg = document.getElementById('aboutDialog');
+document.getElementById('closeAbout').addEventListener('click', () => aboutDlg.close());
+aboutDlg.addEventListener('click', e => {
+  if (e.target === aboutDlg) aboutDlg.close();
+});
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') aboutDlg.close();
+});
+
+/* ============================================================
+   Public helper – logout (used elsewhere if needed)
+   ============================================================ */
+export function logout() {
+  localStorage.removeItem(CURRENT_USER_KEY);
+  showScreen('welcome');
+}
+
+/* show welcome screen on first load */
+showScreen('welcome');

@@ -5,27 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Galactic Invaders</title>
 
-    <!-- Global stylesheet (all comments in English) -->
+    <!-- Global stylesheet -->
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <!-- ================= HEADER ================= -->
     <header>
       <h1>Galactic Invaders</h1>
       <img src="assets/img/logo.png" alt="logo" />
     </header>
 
+    <!-- ================= NAVIGATION BAR ================= -->
     <nav>
       <button data-screen="welcome">Home</button>
       <button data-screen="about">About</button>
       <button data-screen="login">Login</button>
     </nav>
 
+    <!-- ================= MAIN (dynamic screens) ================= -->
     <main id="content">
-      <section id="welcome" class="screen"></section>
+      <!-- ===== Welcome Screen ===== -->
+      <section id="welcome" class="screen">
+        <h2>Welcome, Space Cadet!</h2>
+        <p>Your mission: eliminate the invading fleet and save the galaxy.</p>
+        <div class="cta">
+          <button id="goRegister">Register</button>
+          <button id="goLogin">Log In</button>
+        </div>
+      </section>
+
+      <!-- ===== Register / Login will be injected by auth.js ===== -->
       <section id="register" class="screen"></section>
       <section id="login" class="screen"></section>
+
+      <!-- ===== Configuration Screen (markup injected by config.js) ===== -->
       <section id="config" class="screen"></section>
 
+      <!-- ===== Game Screen ===== -->
       <section id="game" class="screen">
         <canvas id="gameCanvas" width="900" height="600"></canvas>
         <div id="hud">
@@ -37,20 +53,33 @@
       </section>
     </main>
 
+    <!-- ================= FOOTER ================= -->
     <footer>
-      <p>&copy; 2025 Galactic Invaders</p>
+      <p>&copy; 2025 Galactic Invaders &mdash; All Rights Reserved.</p>
     </footer>
 
-    <!-- Modal About dialog -->
+    <!-- ================= ABOUT MODAL ================= -->
     <dialog id="aboutDialog">
       <button id="closeAbout">×</button>
-      <!-- about‑content will be injected via JS or static markup -->
+      <h2>About Galactic Invaders</h2>
+      <p>Created for the BGU "Internet Development Environments" course.</p>
+      <ul>
+        <li>Built with vanilla HTML5, CSS and JavaScript modules.</li>
+        <li>No external templates &mdash; pure custom code.</li>
+        <li>Game logic inspired by classic Space Invaders.</li>
+      </ul>
     </dialog>
 
-    <!-- JavaScript modules (order matters) -->
+    <!-- ================= SCRIPTS ================= -->
     <script type="module" src="js/utils.js"></script>
     <script type="module" src="js/auth.js"></script>
     <script type="module" src="js/config.js"></script>
     <script type="module" src="js/game.js"></script>
+
+    <!-- Quick helpers to route Welcome buttons to the correct screens -->
+    <script>
+      document.getElementById('goRegister').addEventListener('click', () => document.querySelector('[data-screen="register"]').click());
+      document.getElementById('goLogin').addEventListener('click', () => document.querySelector('[data-screen="login"]').click());
+    </script>
   </body>
 </html>

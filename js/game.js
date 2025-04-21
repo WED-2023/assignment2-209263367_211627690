@@ -250,4 +250,16 @@ function endGame(reason) {
   showScreen('config');         
 }
 
+function saveScore(score) {
+  const user = localStorage.getItem('gi_current_user');
+  if (!user) return;
+
+  const key = `gi_score_${user}`;
+  const best = parseInt(localStorage.getItem(key) || '0');
+  if (score > best) {
+    localStorage.setItem(key, score);
+    alert('New High Score!');
+  }
+}
+
 /* -------------------------------------------------- */
