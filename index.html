@@ -1,7 +1,17 @@
-<body>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Galactic Invaders</title>
+
+    <!-- Global stylesheet (all comments in English) -->
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
     <header>
       <h1>Galactic Invaders</h1>
-      <img src="assets/img/logo.png" alt="logo">
+      <img src="assets/img/logo.png" alt="logo" />
     </header>
 
     <nav>
@@ -9,26 +19,13 @@
       <button data-screen="about">About</button>
       <button data-screen="login">Login</button>
     </nav>
-  
-  
+
     <main id="content">
-  
-      <section id="welcome" class="screen">
-      
-      </section>
-  
-      <section id="register" class="screen">
-    
-      </section>
-  
-      <section id="login" class="screen">
-  
-      </section>
-  
-      <section id="config" class="screen">
-      
-      </section>
-  
+      <section id="welcome" class="screen"></section>
+      <section id="register" class="screen"></section>
+      <section id="login" class="screen"></section>
+      <section id="config" class="screen"></section>
+
       <section id="game" class="screen">
         <canvas id="gameCanvas" width="900" height="600"></canvas>
         <div id="hud">
@@ -38,22 +35,22 @@
         </div>
         <button id="newGameBtn">New Game</button>
       </section>
-  
     </main>
-  
-    <footer>
-      <p>&copy; 2025 Galactic Invaders</p>
-    </footer>
-  
 
+    <footer>
+      <p>&copy; 2025 Galactic Invaders</p>
+    </footer>
+
+    <!-- Modal About dialog -->
     <dialog id="aboutDialog">
       <button id="closeAbout">×</button>
-
+      <!-- about‑content will be injected via JS or static markup -->
     </dialog>
-  
-    <script src="js/utils.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/config.js"></script>
-    <script src="js/game.js"></script>
+
+    <!-- JavaScript modules (order matters) -->
+    <script type="module" src="js/utils.js"></script>
+    <script type="module" src="js/auth.js"></script>
+    <script type="module" src="js/config.js"></script>
+    <script type="module" src="js/game.js"></script>
   </body>
-  
+</html>
