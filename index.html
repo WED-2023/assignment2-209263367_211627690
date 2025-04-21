@@ -1,0 +1,59 @@
+<body>
+    <header>
+      <h1>Galactic Invaders</h1>
+      <img src="assets/img/logo.png" alt="logo">
+    </header>
+
+    <nav>
+      <button data-screen="welcome">Home</button>
+      <button data-screen="about">About</button>
+      <button data-screen="login">Login</button>
+    </nav>
+  
+  
+    <main id="content">
+  
+      <section id="welcome" class="screen">
+      
+      </section>
+  
+      <section id="register" class="screen">
+    
+      </section>
+  
+      <section id="login" class="screen">
+  
+      </section>
+  
+      <section id="config" class="screen">
+      
+      </section>
+  
+      <section id="game" class="screen">
+        <canvas id="gameCanvas" width="900" height="600"></canvas>
+        <div id="hud">
+          <span id="score">Score: 0</span>
+          <span id="lives">Lives: 3</span>
+          <span id="time">Time: 02:00</span>
+        </div>
+        <button id="newGameBtn">New Game</button>
+      </section>
+  
+    </main>
+  
+    <footer>
+      <p>&copy; 2025 Galactic Invaders</p>
+    </footer>
+  
+
+    <dialog id="aboutDialog">
+      <button id="closeAbout">×</button>
+
+    </dialog>
+  
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/game.js"></script>
+  </body>
+  
