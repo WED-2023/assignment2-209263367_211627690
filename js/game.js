@@ -177,9 +177,22 @@ function render() {
 // Controls & shooting
 const keys = {};
 function handleKey(e) {
-  keys[e.key] = e.type === 'keydown';
-  if (e.type === 'keydown' && e.code === 'Space') shoot();
-}
+    // prevent the page from scrolling when using arrows or space
+    if (
+      ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) ||
+      e.code === 'Space'
+    ) {
+      e.preventDefault();
+    }
+  
+    // track key state
+    keys[e.key] = e.type === 'keydown';
+  
+    // shoot on space
+    if (e.type === 'keydown' && e.code === 'Space') {
+      shoot();
+    }
+  }
 function shoot() {
   playerShots.push({ x: player.x + player.w/2 - 2, y: player.y, w:4, h:10 });
   playSound('player_shoot');
