@@ -1,36 +1,29 @@
 // js/auth.js – Registration, Login & Nav‑Toggle logic
-// ---------------------------------------------------------------
-// Responsibilities:
-//  1. Persist users in localStorage (including default "testuser"/p)
-//  2. Validate registration form (password strength, email, etc.)
-//  3. Handle login, store current user, then show config screen
-//  4. Swap out Login/Register for Logout in the nav when signed in
-//  5. Wire nav buttons + About dialog behaviour
-// ---------------------------------------------------------------
 
 import { showScreen } from './utils.js';
 
-const USERS_KEY = 'gi_users';
+const USERS_KEY        = 'gi_users';
 const CURRENT_USER_KEY = 'gi_current_user';
 
-// grab the nav buttons
+// Nav buttons
 const navLogin    = document.getElementById('navLogin');
 const navRegister = document.getElementById('navRegister');
+const navPlay     = document.getElementById('navPlay');
 const navLogout   = document.getElementById('navLogout');
 
-const welcomeCta = document.getElementById('welcomeCta');
-
-/** show/hide Login, Register, Logout based on login state */
+/** Show/hide Login, Register, Play and Logout based on login state */
 function updateNav() {
   const loggedIn = !!localStorage.getItem(CURRENT_USER_KEY);
   navLogin.hidden    = loggedIn;
   navRegister.hidden = loggedIn;
+  navPlay.hidden     = !loggedIn;  // Show Play only when logged in
   navLogout.hidden   = !loggedIn;
 }
 
-// initial call, before any showScreen
+// Initial setup
 updateNav();
 showScreen('welcome');
+
 // Helpers – load / save users
 function loadUsers() {
   const raw = localStorage.getItem(USERS_KEY);
@@ -70,7 +63,8 @@ registerSec.innerHTML = `
     <input type="date"  name="dob" required>
     <button>Sign Up</button>
   </form>
-  <p id="regError" class="error"></p>`;
+  <p id="regError" class="error"></p>
+`;
 
 const loginSec = document.getElementById('login');
 loginSec.innerHTML = `
@@ -80,19 +74,20 @@ loginSec.innerHTML = `
     <input type="password" name="password" placeholder="Password" required>
     <button>Login</button>
   </form>
-  <p id="loginError" class="error"></p>`;
+  <p id="loginError" class="error"></p>
+`;
 
 // Form event listeners
 document.getElementById('registerForm').addEventListener('submit', handleRegister);
-document.getElementById('loginForm').addEventListener('submit', handleLogin);
+document.getElementById('loginForm').addEventListener('submit',    handleLogin);
 
 function handleRegister(e) {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(e.target));
-  const err = document.getElementById('regError');
+  const err  = document.getElementById('regError');
   err.textContent = '';
 
-  // -------- validations --------
+  // Validations
   const users = loadUsers();
   if (users.some(u => u.username === data.username)) {
     err.textContent = 'Username already exists';
@@ -117,7 +112,7 @@ function handleRegister(e) {
     return;
   }
 
-  // save new user
+  // Save new user
   users.push({
     username: data.username,
     password: data.password,
@@ -127,6 +122,7 @@ function handleRegister(e) {
     dob: data.dob
   });
   saveUsers(users);
+
   alert('Registration successful! Please log in.');
   showScreen('login');
   e.target.reset();
@@ -135,7 +131,7 @@ function handleRegister(e) {
 function handleLogin(e) {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(e.target));
-  const err = document.getElementById('loginError');
+  const err  = document.getElementById('loginError');
   err.textContent = '';
 
   const user = loadUsers().find(u => u.username === data.username && u.password === data.password);
@@ -144,7 +140,7 @@ function handleLogin(e) {
     return;
   }
 
-  // mark user as logged in
+  // Mark user as logged in
   localStorage.setItem(CURRENT_USER_KEY, user.username);
   updateNav();
   showScreen('config');
@@ -156,33 +152,24 @@ document.querySelectorAll('nav button[data-screen]').forEach(btn => {
   btn.addEventListener('click', () => {
     if (btn.dataset.screen === 'about') {
       document.getElementById('aboutDialog').showModal();
-      return;
-    }
-    if (btn.dataset.screen === 'login' && localStorage.getItem(CURRENT_USER_KEY)) {
-      showScreen('config');
     } else {
       showScreen(btn.dataset.screen);
     }
   });
 });
 
-// Logout button behavior
+// Logout behavior
 navLogout.addEventListener('click', () => {
   localStorage.removeItem(CURRENT_USER_KEY);
   updateNav();
   showScreen('welcome');
 });
 
-// Close About dialog (ESC, X, click outside)
+// Close About dialog
 const aboutDlg = document.getElementById('aboutDialog');
 document.getElementById('closeAbout').addEventListener('click', () => aboutDlg.close());
-aboutDlg.addEventListener('click', e => {
-  if (e.target === aboutDlg) aboutDlg.close();
-});
-window.addEventListener('keydown', e => {
-  if (e.key === 'Escape') aboutDlg.close();
-});
+aboutDlg.addEventListener('click', e => { if (e.target === aboutDlg) aboutDlg.close(); });
+window.addEventListener('keydown', e => { if (e.key === 'Escape') aboutDlg.close(); });
 
-// Initial UI setup
+// Initial UI
 updateNav();
-showScreen('welcome');

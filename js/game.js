@@ -30,7 +30,7 @@ resizeCanvas();
 const ROWS = 4, COLS = 5;
 const ENEMY_WIDTH  = 40, ENEMY_HEIGHT = 30;
 
-// player
+// player constants
 const PLAYER_AREA  = 0.4;
 const PLAYER_SPEED = 300;
 const BULLET_SPEED = 450;
@@ -55,23 +55,29 @@ let initialMinEnemyY = 0;
 
 let player, enemies, playerShots, enemyShots;
 let score, lives, timeLeft;
-let lastFrame = 0, shootKey = 'Space';
-let gameTimerID;
+let shootKey = 'Space';       // comes from config
+let lastFrame = 0, gameTimerID;
 
+// Start a new game with the provided config
 export function startGame(conf) {
   resizeCanvas();
+  // load configured shoot key
   shootKey = conf.shootKey || 'Space';
   timeLeft = conf.time   || 120;
   score    = 0;
   lives    = 3;
 
-  // initialize player
+  // initialize player at a random position within the bottom 40%
+  const pw = 50, ph = 30;
+  const areaTop = H * (1 - PLAYER_AREA);
+  const areaHeight = PLAYER_AREA * H - ph;
   player = {
-    x: W/2 - 25,
-    y: H * (1 - PLAYER_AREA),
-    w: 50,
-    h: 30
+    w: pw,
+    h: ph,
+    x: Math.random() * (W - pw),
+    y: areaTop + Math.random() * areaHeight
   };
+
   playerShots = [];
   enemyShots  = [];
   initEnemies();
@@ -94,7 +100,7 @@ export function startGame(conf) {
     }
   }, ACCEL_INTERVAL);
 
-  // timer
+  // game timer
   clearInterval(gameTimerID);
   gameTimerID = setInterval(() => {
     if (--timeLeft <= 0) endGame('time');
@@ -145,35 +151,35 @@ function update(dt) {
   player.x = Math.max(0, Math.min(W - player.w, player.x));
   player.y = Math.max(minPY, Math.min(H - player.h, player.y));
 
-  // player shots move
+  // move player bullets
   playerShots.forEach(b => b.y -= BULLET_SPEED * dt);
 
-  // enemy eggs move
+  // move enemy eggs
   enemyShots.forEach(b => {
     b.y += b.vy * dt;
     b.rotation += dt * 5;
   });
 
-  // fleet movement
+  // fleet drift
   fleetOffset += fleetDir * speedX * dt;
   enemies.forEach(e => { if (e.alive) e.y += speedY * dt * vDir; });
 
   // horizontal bounce
   const alive = enemies.filter(e => e.alive);
   if (alive.length) {
-    const pos = alive.map(e => e.baseX + fleetOffset);
-    const minX = Math.min(...pos);
-    const maxX = Math.max(...pos) + ENEMY_WIDTH;
+    const xs = alive.map(e => e.baseX + fleetOffset);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs) + ENEMY_WIDTH;
     if (maxX > W) { fleetDir = -1; fleetOffset -= (maxX - W); }
     else if (minX < 0) { fleetDir = 1; fleetOffset += -minX; }
   }
 
-  // vertical bounce at 60%
+  // vertical bounce at 60% height
   const bottomL = H * (1 - PLAYER_AREA);
   if (vDir > 0 && alive.some(e => e.y >= bottomL)) vDir = -1;
   else if (vDir < 0 && alive.some(e => e.y <= initialMinEnemyY)) vDir = 1;
 
-  // cull offscreen shots
+  // cull off-screen shots
   playerShots = playerShots.filter(b => b.y > -10);
   enemyShots  = enemyShots.filter(b => b.y < H + 10);
 
@@ -199,11 +205,11 @@ function render() {
     ctx.fillRect(x, e.y, ENEMY_WIDTH, ENEMY_HEIGHT);
   });
 
-  // draw player shots
+  // draw player bullets
   ctx.fillStyle = 'white';
   playerShots.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
 
-  // draw eggs
+  // draw rotating eggs
   enemyShots.forEach(b => {
     ctx.save();
     ctx.translate(b.x + b.w/2, b.y + b.h/2);
@@ -213,17 +219,34 @@ function render() {
   });
 }
 
+// keep track of pressed keys
 const keys = {};
+
 function handleKey(e) {
-  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) || e.code === 'Space') {
+  // normalize single-character to uppercase, but map Space via code
+  let k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  if (e.code === 'Space') k = 'Space';
+
+  // prevent default on arrows or the shootKey
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) || k === shootKey) {
     e.preventDefault();
   }
-  keys[e.key] = e.type === 'keydown';
-  if (e.type === 'keydown' && e.code === 'Space') shoot();
+
+  // track down/up
+  keys[e.key] = (e.type === 'keydown');
+
+  // fire when the configured key is pressed
+  if (e.type === 'keydown' && k === shootKey) {
+    shoot();
+  }
 }
 
 function shoot() {
-  playerShots.push({ x: player.x + player.w/2 - 2, y: player.y, w: 4, h: 10 });
+  playerShots.push({
+    x: player.x + player.w/2 - 2,
+    y: player.y,
+    w: 4, h: 10
+  });
   playSound('player_shoot');
 }
 
@@ -235,18 +258,22 @@ function maybeShootEnemy() {
   const alive = enemies.filter(e => e.alive);
   if (!alive.length) return;
   const s = alive[Math.floor(Math.random() * alive.length)];
-  enemyShots.push({ x: s.baseX + fleetOffset + ENEMY_WIDTH/2 - 10, y: s.y + ENEMY_HEIGHT, w: 20, h: 28, vy: eggSpeed, rotation: 0 });
+  enemyShots.push({
+    x: s.baseX + fleetOffset + ENEMY_WIDTH/2 - 10,
+    y: s.y + ENEMY_HEIGHT,
+    w: 20, h: 28,
+    vy: eggSpeed,
+    rotation: 0
+  });
 }
 
 function checkCollisions() {
-  // enemy eggs vs player
+  // eggs vs player
   for (let i = 0; i < enemyShots.length; i++) {
     const b = enemyShots[i];
     if (rectsOverlap(player, b)) {
       playSound('player_hit');
-      // remove this egg
-      enemyShots.splice(i, 1);
-      i--;
+      enemyShots.splice(i--, 1);
       lives--;
       HUD.livesEl.textContent = `Lives: ${lives}`;
       if (lives <= 0) {
@@ -255,8 +282,7 @@ function checkCollisions() {
       }
     }
   }
-
-  // player shots vs enemies
+  // bullets vs enemies
   playerShots.forEach(b => {
     enemies.forEach(e => {
       if (!e.alive) return;
@@ -274,13 +300,18 @@ function checkCollisions() {
 }
 
 function rectsOverlap(a, b) {
-  return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
+  return !(
+    a.x + a.w < b.x ||
+    b.x + b.w < a.x ||
+    a.y + a.h < b.y ||
+    b.y + b.h < a.y
+  );
 }
 
-function formatTime(s) {
-  return s < 60
-    ? `0:${s.toString().padStart(2,'0')}`
-    : `${Math.floor(s/60)}:${(s % 60).toString().padStart(2,'0')}`;
+function formatTime(sec) {
+  return sec < 60
+    ? `0:${sec.toString().padStart(2,'0')}`
+    : `${Math.floor(sec/60)}:${(sec % 60).toString().padStart(2,'0')}`;
 }
 
 function endGame(reason) {
