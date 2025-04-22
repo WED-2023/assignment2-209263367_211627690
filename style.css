@@ -183,3 +183,21 @@ dialog {
     aspect-ratio: 1100 / 733;
   }
 }
+
+/* ===== Welcome‑screen poster styling ===== */
+.poster {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.poster img {
+  /* never exceed 80% of viewport width, nor 60% of viewport height */
+  max-width: 80vw;
+  max-height: 60vh;
+  width: auto;
+  height: auto;
+  display: inline-block;
+  border-radius: 8px;    /* optional rounded corners */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+}
+

@@ -11,7 +11,7 @@
   <body>
     <!-- ================= HEADER ================= -->
     <header>
-      <h1>Galactic Invaders</h1>
+      <h1>Galactic Invaders</h1>
       <img src="assets/img/logo.png" alt="logo" />
     </header>
 
@@ -19,25 +19,20 @@
     <nav>
       <button data-screen="welcome">Home</button>
       <button data-screen="about">About</button>
-      <button data-screen="login"    id="navLogin">Login</button>
+      <button data-screen="login" id="navLogin">Login</button>
       <button data-screen="register" id="navRegister">Register</button>
-      <!-- note the hidden attribute here -->
       <button id="navLogout" hidden>Logout</button>
     </nav>
-    
-    
 
     <!-- ================= MAIN (dynamic screens) ================= -->
     <main id="content">
       <!-- ===== Welcome Screen ===== -->
       <section id="welcome" class="screen">
-        <h2>Welcome, Space Cadet!</h2>
+        <h2>Welcome, Space Cadet!</h2>
         <p>Your mission: eliminate the invading fleet and save the galaxy.</p>
-<!--        <div class="cta">-->
-        <!-- <div class="cta" id="welcomeCta">
-          <button id="goRegister">Register</button>
-          <button id="goLogin">Log In</button>
-        </div> -->
+        <div class="poster">
+          <img src="assets/img/poster.png" alt="Galactic Invaders Poster" />
+        </div>
       </section>
 
       <!-- ===== Register / Login will be injected by auth.js ===== -->
