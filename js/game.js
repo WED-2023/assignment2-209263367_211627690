@@ -17,7 +17,7 @@ const HUD    = {
 let W = canvas.width, H = canvas.height;
 function resizeCanvas() {
   const cw = canvas.clientWidth, ch = canvas.clientHeight;
-  if (cw>0 && ch>0 && (canvas.width!==cw || canvas.height!==ch)) {
+  if (cw > 0 && ch > 0 && (canvas.width !== cw || canvas.height !== ch)) {
     canvas.width  = cw;
     canvas.height = ch;
     W = cw; H = ch;
@@ -35,22 +35,22 @@ const PLAYER_AREA  = 0.4;
 const PLAYER_SPEED = 300;
 const BULLET_SPEED = 450;
 
-// enemy bullets
-const EGG_SPEED    = 260;
+// enemy bullet speed
+let eggSpeed    = 260;
 
 // fleet movement & acceleration
-let fleetOffset = 0;     // horizontal offset
-let fleetDir    = 1;     // +1 right, -1 left
-let vDir        = 1;     // vertical drift +1 down, -1 up
-let speedX      = 60;    // horizontal px/sec
-let speedY      = 20;    // vertical px/sec
+let fleetOffset = 0;
+let fleetDir    = 1;
+let vDir        = 1;
+let speedX      = 60;
+let speedY      = 20;
 const ACCEL_INTERVAL   = 5000;
 const MAX_ACCEL_STEPS  = 4;
 const ACCEL_FACTOR     = 1.2;
 let accelSteps   = 0;
 let accelTimerID = null;
 
-// enemy spawn / vertical bounds
+// enemy vertical bounds
 let initialMinEnemyY = 0;
 
 let player, enemies, playerShots, enemyShots;
@@ -65,10 +65,12 @@ export function startGame(conf) {
   score    = 0;
   lives    = 3;
 
+  // initialize player
   player = {
     x: W/2 - 25,
-    y: H*(1-PLAYER_AREA),
-    w: 50, h: 30
+    y: H * (1 - PLAYER_AREA),
+    w: 50,
+    h: 30
   };
   playerShots = [];
   enemyShots  = [];
@@ -78,18 +80,21 @@ export function startGame(conf) {
   HUD.livesEl.textContent = `Lives: ${lives}`;
   HUD.timeEl.textContent  = formatTime(timeLeft);
 
+  // reset acceleration
   clearInterval(accelTimerID);
   accelSteps = 0;
-  speedX = 60; speedY = 20;
-  vDir = 1;
+  speedX = 60; speedY = 20; eggSpeed = 260; vDir = 1;
   accelTimerID = setInterval(() => {
     if (accelSteps < MAX_ACCEL_STEPS) {
       accelSteps++;
       speedX *= ACCEL_FACTOR;
       speedY *= ACCEL_FACTOR;
+      eggSpeed *= ACCEL_FACTOR;
+      enemyShots.forEach(b => b.vy *= ACCEL_FACTOR);
     }
   }, ACCEL_INTERVAL);
 
+  // timer
   clearInterval(gameTimerID);
   gameTimerID = setInterval(() => {
     if (--timeLeft <= 0) endGame('time');
@@ -110,74 +115,63 @@ function initEnemies() {
   const startY = H * 0.10;
   const gapY   = H * 0.08;
 
-  for (let r=0; r<ROWS; r++) {
-    for (let c=0; c<COLS; c++) {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
       const x = gapX * (c + 1);
       const y = startY + r * gapY;
-      enemies.push({ baseX:x, y, row:r, alive:true });
+      enemies.push({ baseX: x, y, row: r, alive: true });
     }
   }
-  // remember their topmost spawn point
   initialMinEnemyY = Math.min(...enemies.map(e => e.y));
 }
 
 function loop(ts) {
-  const dt = (ts - lastFrame)/1000;
+  const dt = (ts - lastFrame) / 1000;
   lastFrame = ts;
   update(dt);
   render();
-  if (lives>0 && enemies.some(e=>e.alive) && timeLeft>0) {
+  if (lives > 0 && enemies.some(e => e.alive) && timeLeft > 0) {
     requestAnimationFrame(loop);
   }
 }
 
 function update(dt) {
-  // —— PLAYER MOVEMENT (bottom 40%) —— 
+  // player movement
   if (keys.ArrowLeft)  player.x -= PLAYER_SPEED * dt;
   if (keys.ArrowRight) player.x += PLAYER_SPEED * dt;
   if (keys.ArrowUp)    player.y -= PLAYER_SPEED * dt;
   if (keys.ArrowDown)  player.y += PLAYER_SPEED * dt;
-  const minPlayerY = H * (1 - PLAYER_AREA);
+  const minPY = H * (1 - PLAYER_AREA);
   player.x = Math.max(0, Math.min(W - player.w, player.x));
-  player.y = Math.max(minPlayerY, Math.min(H - player.h, player.y));
+  player.y = Math.max(minPY, Math.min(H - player.h, player.y));
 
-  // —— PLAYER SHOTS —— 
+  // player shots move
   playerShots.forEach(b => b.y -= BULLET_SPEED * dt);
 
-  // —— ENEMY EGGS —— 
+  // enemy eggs move
   enemyShots.forEach(b => {
     b.y += b.vy * dt;
     b.rotation += dt * 5;
   });
 
-  // —— FLEET DRIFT (diagonal) —— 
+  // fleet movement
   fleetOffset += fleetDir * speedX * dt;
-  enemies.forEach(e => {
-    if (e.alive) e.y += speedY * dt * vDir;
-  });
+  enemies.forEach(e => { if (e.alive) e.y += speedY * dt * vDir; });
 
   // horizontal bounce
   const alive = enemies.filter(e => e.alive);
   if (alive.length) {
-    const positions = alive.map(e => e.baseX + fleetOffset);
-    const minX = Math.min(...positions);
-    const maxX = Math.max(...positions) + ENEMY_WIDTH;
-    if (maxX > W) {
-      fleetDir = -1;
-      fleetOffset -= (maxX - W);
-    } else if (minX < 0) {
-      fleetDir = 1;
-      fleetOffset += -minX;
-    }
+    const pos = alive.map(e => e.baseX + fleetOffset);
+    const minX = Math.min(...pos);
+    const maxX = Math.max(...pos) + ENEMY_WIDTH;
+    if (maxX > W) { fleetDir = -1; fleetOffset -= (maxX - W); }
+    else if (minX < 0) { fleetDir = 1; fleetOffset += -minX; }
   }
 
-  // vertical bounce at 60% height
-  const bottomLimit = H * (1 - PLAYER_AREA);
-  if (vDir > 0 && alive.some(e => e.y >= bottomLimit)) {
-    vDir = -1;
-  } else if (vDir < 0 && alive.some(e => e.y <= initialMinEnemyY)) {
-    vDir = 1;
-  }
+  // vertical bounce at 60%
+  const bottomL = H * (1 - PLAYER_AREA);
+  if (vDir > 0 && alive.some(e => e.y >= bottomL)) vDir = -1;
+  else if (vDir < 0 && alive.some(e => e.y <= initialMinEnemyY)) vDir = 1;
 
   // cull offscreen shots
   playerShots = playerShots.filter(b => b.y > -10);
@@ -188,30 +182,28 @@ function update(dt) {
 }
 
 function render() {
-  ctx.clearRect(0,0,W,H);
-
-  // background
+  ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#000012';
-  ctx.fillRect(0,0,W,H);
+  ctx.fillRect(0, 0, W, H);
 
-  // player
+  // draw player
   ctx.fillStyle = 'lime';
   ctx.fillRect(player.x, player.y, player.w, player.h);
 
-  // enemies
+  // draw enemies
   enemies.forEach(e => {
     if (!e.alive) return;
     const x = e.baseX + fleetOffset;
-    const colors = ['red','orange','yellow','cyan'];
-    ctx.fillStyle = colors[e.row];
+    const cols = ['red','orange','yellow','cyan'];
+    ctx.fillStyle = cols[e.row];
     ctx.fillRect(x, e.y, ENEMY_WIDTH, ENEMY_HEIGHT);
   });
 
-  // player lasers
+  // draw player shots
   ctx.fillStyle = 'white';
   playerShots.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
 
-  // rotating eggs
+  // draw eggs
   enemyShots.forEach(b => {
     ctx.save();
     ctx.translate(b.x + b.w/2, b.y + b.h/2);
@@ -223,19 +215,15 @@ function render() {
 
 const keys = {};
 function handleKey(e) {
-  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) || e.code==='Space') {
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) || e.code === 'Space') {
     e.preventDefault();
   }
-  keys[e.key] = e.type==='keydown';
-  if (e.type==='keydown' && e.code==='Space') shoot();
+  keys[e.key] = e.type === 'keydown';
+  if (e.type === 'keydown' && e.code === 'Space') shoot();
 }
 
 function shoot() {
-  playerShots.push({
-    x: player.x + player.w/2 - 2,
-    y: player.y,
-    w: 4, h: 10
-  });
+  playerShots.push({ x: player.x + player.w/2 - 2, y: player.y, w: 4, h: 10 });
   playSound('player_shoot');
 }
 
@@ -244,48 +232,55 @@ function maybeShootEnemy() {
   const now = performance.now();
   if (now - lastEgg < 800) return;
   lastEgg = now;
-  const alive = enemies.filter(e=>e.alive);
+  const alive = enemies.filter(e => e.alive);
   if (!alive.length) return;
-  const shooter = alive[Math.floor(Math.random()*alive.length)];
-  enemyShots.push({
-    x: shooter.baseX + fleetOffset + ENEMY_WIDTH/2 - 10,
-    y: shooter.y + ENEMY_HEIGHT,
-    w: 20, h: 28,
-    vy: EGG_SPEED,
-    rotation: 0
-  });
+  const s = alive[Math.floor(Math.random() * alive.length)];
+  enemyShots.push({ x: s.baseX + fleetOffset + ENEMY_WIDTH/2 - 10, y: s.y + ENEMY_HEIGHT, w: 20, h: 28, vy: eggSpeed, rotation: 0 });
 }
 
 function checkCollisions() {
+  // enemy eggs vs player
+  for (let i = 0; i < enemyShots.length; i++) {
+    const b = enemyShots[i];
+    if (rectsOverlap(player, b)) {
+      playSound('player_hit');
+      // remove this egg
+      enemyShots.splice(i, 1);
+      i--;
+      lives--;
+      HUD.livesEl.textContent = `Lives: ${lives}`;
+      if (lives <= 0) {
+        endGame('lives');
+        return;
+      }
+    }
+  }
+
+  // player shots vs enemies
   playerShots.forEach(b => {
     enemies.forEach(e => {
       if (!e.alive) return;
       const ex = e.baseX + fleetOffset;
-      if (rectsOverlap({ x:ex, y:e.y, w:ENEMY_WIDTH, h:ENEMY_HEIGHT }, b)) {
+      if (rectsOverlap({ x: ex, y: e.y, w: ENEMY_WIDTH, h: ENEMY_HEIGHT }, b)) {
         playSound('enemy_hit');
         e.alive = false;
         b.y = -100;
-        score += (ROWS - e.row)*5;
+        score += (ROWS - e.row) * 5;
         HUD.scoreEl.textContent = `Score: ${score}`;
-        if (!enemies.some(en=>en.alive)) endGame('win');
+        if (!enemies.some(en => en.alive)) endGame('win');
       }
     });
   });
 }
 
-function rectsOverlap(a,b) {
-  return !(
-    a.x + a.w < b.x ||
-    b.x + b.w < a.x ||
-    a.y + a.h < b.y ||
-    b.y + b.h < a.y
-  );
+function rectsOverlap(a, b) {
+  return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
 }
 
 function formatTime(s) {
   return s < 60
     ? `0:${s.toString().padStart(2,'0')}`
-    : `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+    : `${Math.floor(s/60)}:${(s % 60).toString().padStart(2,'0')}`;
 }
 
 function endGame(reason) {
