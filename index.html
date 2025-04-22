@@ -30,7 +30,18 @@
         <h2>Welcome, Space Cadet!</h2>
         <p>Your mission: eliminate the invading fleet and save the galaxy.</p>
         <div class="poster">
-          <img src="assets/img/poster.png" alt="Galactic Invaders Poster" />
+          <video
+            class="poster-video"
+            autoplay
+            muted
+            loop
+            playsinline
+            aria-label="Galactic Invaders Trailer"
+          >
+            <source src="assets/img/poster.mp4" type="video/mp4" />
+            <!-- Fallback for browsers without video support -->
+            <img src="assets/img/poster.png" alt="Galactic Invaders Poster" />
+          </video>
         </div>
       </section>
 
