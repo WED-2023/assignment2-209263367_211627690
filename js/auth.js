@@ -1,10 +1,11 @@
-// js/auth.js – Registration & Login logic (all comments in English)
+// js/auth.js – Registration, Login & Nav‑Toggle logic
 // ---------------------------------------------------------------
 // Responsibilities:
 //  1. Persist users in localStorage (including default "testuser"/p)
 //  2. Validate registration form (password strength, email, etc.)
 //  3. Handle login, store current user, then show config screen
-//  4. Wire nav buttons + About dialog behaviour
+//  4. Swap out Login/Register for Logout in the nav when signed in
+//  5. Wire nav buttons + About dialog behaviour
 // ---------------------------------------------------------------
 
 import { showScreen } from './utils.js';
@@ -12,9 +13,25 @@ import { showScreen } from './utils.js';
 const USERS_KEY = 'gi_users';
 const CURRENT_USER_KEY = 'gi_current_user';
 
-/* ============================================================
-   Helpers – load / save users
-   ============================================================ */
+// grab the nav buttons
+const navLogin    = document.getElementById('navLogin');
+const navRegister = document.getElementById('navRegister');
+const navLogout   = document.getElementById('navLogout');
+
+const welcomeCta = document.getElementById('welcomeCta');
+
+/** show/hide Login, Register, Logout based on login state */
+function updateNav() {
+  const loggedIn = !!localStorage.getItem(CURRENT_USER_KEY);
+  navLogin.hidden    = loggedIn;
+  navRegister.hidden = loggedIn;
+  navLogout.hidden   = !loggedIn;
+}
+
+// initial call, before any showScreen
+updateNav();
+showScreen('welcome');
+// Helpers – load / save users
 function loadUsers() {
   const raw = localStorage.getItem(USERS_KEY);
   return raw ? JSON.parse(raw) : [];
@@ -23,9 +40,7 @@ function saveUsers(arr) {
   localStorage.setItem(USERS_KEY, JSON.stringify(arr));
 }
 
-/* ============================================================
-   Ensure demo user exists (username: testuser, pass: p)
-   ============================================================ */
+// Ensure demo user exists (username: p, password: testuser)
 (function ensureDefaultUser() {
   const users = loadUsers();
   if (!users.some(u => u.username === 'p')) {
@@ -41,9 +56,7 @@ function saveUsers(arr) {
   }
 })();
 
-/* ============================================================
-   Inject Register & Login markup (keeps index.html minimal)
-   ============================================================ */
+// Inject Register & Login markup
 const registerSec = document.getElementById('register');
 registerSec.innerHTML = `
   <h2>Register</h2>
@@ -69,10 +82,7 @@ loginSec.innerHTML = `
   </form>
   <p id="loginError" class="error"></p>`;
 
-/* ============================================================
-   Event listeners for forms
-   ============================================================ */
-
+// Form event listeners
 document.getElementById('registerForm').addEventListener('submit', handleRegister);
 document.getElementById('loginForm').addEventListener('submit', handleLogin);
 
@@ -82,7 +92,7 @@ function handleRegister(e) {
   const err = document.getElementById('regError');
   err.textContent = '';
 
-  /* -------- validations -------- */
+  // -------- validations --------
   const users = loadUsers();
   if (users.some(u => u.username === data.username)) {
     err.textContent = 'Username already exists';
@@ -133,14 +143,15 @@ function handleLogin(e) {
     err.textContent = 'Invalid username or password';
     return;
   }
+
+  // mark user as logged in
   localStorage.setItem(CURRENT_USER_KEY, user.username);
+  updateNav();
   showScreen('config');
   e.target.reset();
 }
 
-/* ============================================================
-   Navigation buttons & About dialog
-   ============================================================ */
+// Wire up nav buttons and About dialog
 document.querySelectorAll('nav button[data-screen]').forEach(btn => {
   btn.addEventListener('click', () => {
     if (btn.dataset.screen === 'about') {
@@ -155,7 +166,14 @@ document.querySelectorAll('nav button[data-screen]').forEach(btn => {
   });
 });
 
-// close About dialog (ESC, X, or click outside)
+// Logout button behavior
+navLogout.addEventListener('click', () => {
+  localStorage.removeItem(CURRENT_USER_KEY);
+  updateNav();
+  showScreen('welcome');
+});
+
+// Close About dialog (ESC, X, click outside)
 const aboutDlg = document.getElementById('aboutDialog');
 document.getElementById('closeAbout').addEventListener('click', () => aboutDlg.close());
 aboutDlg.addEventListener('click', e => {
@@ -165,13 +183,6 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') aboutDlg.close();
 });
 
-/* ============================================================
-   Public helper – logout (used elsewhere if needed)
-   ============================================================ */
-export function logout() {
-  localStorage.removeItem(CURRENT_USER_KEY);
-  showScreen('welcome');
-}
-
-/* show welcome screen on first load */
+// Initial UI setup
+updateNav();
 showScreen('welcome');
