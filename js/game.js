@@ -1,6 +1,10 @@
 // js/game.js
 import { showScreen, playSound } from './utils.js';
 
+// preload the egg sprite
+const eggImg = new Image();
+eggImg.src = 'assets/img/egg.png';
+
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
 const HUD    = {
@@ -9,41 +13,45 @@ const HUD    = {
   timeEl : document.getElementById('time')
 };
 
+// screen size
 let W = canvas.width, H = canvas.height;
-// Re‑sync the drawing buffer to the CSS size
 function resizeCanvas() {
-  const cw = canvas.clientWidth;
-  const ch = canvas.clientHeight;
-  // only when it actually has space
-  if (cw > 0 && ch > 0 && (canvas.width !== cw || canvas.height !== ch)) {
+  const cw = canvas.clientWidth, ch = canvas.clientHeight;
+  if (cw>0 && ch>0 && (canvas.width!==cw || canvas.height!==ch)) {
     canvas.width  = cw;
     canvas.height = ch;
-    W = cw;
-    H = ch;
+    W = cw; H = ch;
   }
 }
-
-// call once now, and again whenever the window resizes
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Grid and movement
+// grid
 const ROWS = 4, COLS = 5;
-const ENEMY_GAP_X  = 80, ENEMY_GAP_Y  = 60;
 const ENEMY_WIDTH  = 40, ENEMY_HEIGHT = 30;
-const START_Y      = 60;
 
-// Player constants
-const PLAYER_AREA        = 0.4;
-const PLAYER_SPEED       = 300;
-const BULLET_SPEED       = 450;
-const ENEMY_BULLET_SPEED = 260;
+// player
+const PLAYER_AREA  = 0.4;
+const PLAYER_SPEED = 300;
+const BULLET_SPEED = 450;
 
-// Fleet movement
-let fleetOffset = 0;
-let fleetDir    = 1;
-const FLEET_SPEED = 60; // pixels/sec
-const DROP_Y      = 20; // pixels when edge hit
+// enemy bullets
+const EGG_SPEED    = 260;
+
+// fleet movement & acceleration
+let fleetOffset = 0;     // horizontal offset
+let fleetDir    = 1;     // +1 right, -1 left
+let vDir        = 1;     // vertical drift +1 down, -1 up
+let speedX      = 60;    // horizontal px/sec
+let speedY      = 20;    // vertical px/sec
+const ACCEL_INTERVAL   = 5000;
+const MAX_ACCEL_STEPS  = 4;
+const ACCEL_FACTOR     = 1.2;
+let accelSteps   = 0;
+let accelTimerID = null;
+
+// enemy spawn / vertical bounds
+let initialMinEnemyY = 0;
 
 let player, enemies, playerShots, enemyShots;
 let score, lives, timeLeft;
@@ -57,14 +65,30 @@ export function startGame(conf) {
   score    = 0;
   lives    = 3;
 
-  player = { x: W/2 - 25, y: H*(1-PLAYER_AREA) + 10, w: 50, h: 30 };
+  player = {
+    x: W/2 - 25,
+    y: H*(1-PLAYER_AREA),
+    w: 50, h: 30
+  };
   playerShots = [];
   enemyShots  = [];
   initEnemies();
 
   HUD.scoreEl.textContent = `Score: ${score}`;
   HUD.livesEl.textContent = `Lives: ${lives}`;
-  HUD.timeEl.textContent   = formatTime(timeLeft);
+  HUD.timeEl.textContent  = formatTime(timeLeft);
+
+  clearInterval(accelTimerID);
+  accelSteps = 0;
+  speedX = 60; speedY = 20;
+  vDir = 1;
+  accelTimerID = setInterval(() => {
+    if (accelSteps < MAX_ACCEL_STEPS) {
+      accelSteps++;
+      speedX *= ACCEL_FACTOR;
+      speedY *= ACCEL_FACTOR;
+    }
+  }, ACCEL_INTERVAL);
 
   clearInterval(gameTimerID);
   gameTimerID = setInterval(() => {
@@ -74,77 +98,88 @@ export function startGame(conf) {
 
   window.addEventListener('keydown', handleKey);
   window.addEventListener('keyup',   handleKey);
+
   lastFrame = performance.now();
   requestAnimationFrame(loop);
   showScreen('game');
 }
 
-// js/game.js
-
 function initEnemies() {
   enemies = [];
-
-  // dynamic spacing: COLS ships evenly across the width
   const gapX   = W / (COLS + 1);
-  // put the top row at 10% down from the top, and space rows at 8% of height
   const startY = H * 0.10;
   const gapY   = H * 0.08;
 
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const x = gapX * (c + 1);           // 1×gapX, 2×gapX, …, COLS×gapX
-      const y = startY + r * gapY;        // startY, startY+gapY, …
-      enemies.push({
-        baseX: x,
-        x,
-        y,
-        row: r,
-        alive: true
-      });
+  for (let r=0; r<ROWS; r++) {
+    for (let c=0; c<COLS; c++) {
+      const x = gapX * (c + 1);
+      const y = startY + r * gapY;
+      enemies.push({ baseX:x, y, row:r, alive:true });
     }
   }
+  // remember their topmost spawn point
+  initialMinEnemyY = Math.min(...enemies.map(e => e.y));
 }
 
-
-function loop(timestamp) {
-  const dt = (timestamp - lastFrame) / 1000;
-  lastFrame = timestamp;
+function loop(ts) {
+  const dt = (ts - lastFrame)/1000;
+  lastFrame = ts;
   update(dt);
   render();
-  if (lives > 0 && enemies.some(e => e.alive) && timeLeft > 0) {
+  if (lives>0 && enemies.some(e=>e.alive) && timeLeft>0) {
     requestAnimationFrame(loop);
   }
 }
 
 function update(dt) {
-  // Player control
+  // —— PLAYER MOVEMENT (bottom 40%) —— 
   if (keys.ArrowLeft)  player.x -= PLAYER_SPEED * dt;
   if (keys.ArrowRight) player.x += PLAYER_SPEED * dt;
   if (keys.ArrowUp)    player.y -= PLAYER_SPEED * dt;
   if (keys.ArrowDown)  player.y += PLAYER_SPEED * dt;
-  const minY = H * (1 - PLAYER_AREA);
+  const minPlayerY = H * (1 - PLAYER_AREA);
   player.x = Math.max(0, Math.min(W - player.w, player.x));
-  player.y = Math.max(minY, Math.min(H - player.h, player.y));
+  player.y = Math.max(minPlayerY, Math.min(H - player.h, player.y));
 
-  // Fleet movement
-  fleetOffset += fleetDir * FLEET_SPEED * dt;
-  const aliveEnemies = enemies.filter(e => e.alive);
-  const positions = aliveEnemies.map(e => e.baseX + fleetOffset);
-  const minPos = Math.min(...positions);
-  const maxPos = Math.max(...positions) + ENEMY_WIDTH;
-  if (maxPos > W) {
-    fleetDir = -1;
-    fleetOffset -= (maxPos - W);
-    enemies.forEach(e => e.y += DROP_Y);
-  } else if (minPos < 0) {
-    fleetDir = 1;
-    fleetOffset += -minPos;
-    enemies.forEach(e => e.y += DROP_Y);
+  // —— PLAYER SHOTS —— 
+  playerShots.forEach(b => b.y -= BULLET_SPEED * dt);
+
+  // —— ENEMY EGGS —— 
+  enemyShots.forEach(b => {
+    b.y += b.vy * dt;
+    b.rotation += dt * 5;
+  });
+
+  // —— FLEET DRIFT (diagonal) —— 
+  fleetOffset += fleetDir * speedX * dt;
+  enemies.forEach(e => {
+    if (e.alive) e.y += speedY * dt * vDir;
+  });
+
+  // horizontal bounce
+  const alive = enemies.filter(e => e.alive);
+  if (alive.length) {
+    const positions = alive.map(e => e.baseX + fleetOffset);
+    const minX = Math.min(...positions);
+    const maxX = Math.max(...positions) + ENEMY_WIDTH;
+    if (maxX > W) {
+      fleetDir = -1;
+      fleetOffset -= (maxX - W);
+    } else if (minX < 0) {
+      fleetDir = 1;
+      fleetOffset += -minX;
+    }
   }
 
-  // Bullets
-  playerShots.forEach(b => b.y -= BULLET_SPEED * dt);
-  enemyShots.forEach(b  => b.y += ENEMY_BULLET_SPEED * dt);
+  // vertical bounce at 60% height
+  const bottomLimit = H * (1 - PLAYER_AREA);
+  if (vDir > 0 && alive.some(e => e.y >= bottomLimit)) {
+    vDir = -1;
+  } else if (vDir < 0 && alive.some(e => e.y <= initialMinEnemyY)) {
+    vDir = 1;
+  }
+
+  // cull offscreen shots
   playerShots = playerShots.filter(b => b.y > -10);
   enemyShots  = enemyShots.filter(b => b.y < H + 10);
 
@@ -153,13 +188,17 @@ function update(dt) {
 }
 
 function render() {
-  ctx.clearRect(0, 0, W, H);
+  ctx.clearRect(0,0,W,H);
+
+  // background
   ctx.fillStyle = '#000012';
-  ctx.fillRect(0, 0, W, H);
-  // Player
+  ctx.fillRect(0,0,W,H);
+
+  // player
   ctx.fillStyle = 'lime';
   ctx.fillRect(player.x, player.y, player.w, player.h);
-  // Enemies
+
+  // enemies
   enemies.forEach(e => {
     if (!e.alive) return;
     const x = e.baseX + fleetOffset;
@@ -167,101 +206,95 @@ function render() {
     ctx.fillStyle = colors[e.row];
     ctx.fillRect(x, e.y, ENEMY_WIDTH, ENEMY_HEIGHT);
   });
-  // Bullets
+
+  // player lasers
   ctx.fillStyle = 'white';
   playerShots.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
-  ctx.fillStyle = 'red';
-  enemyShots.forEach(b  => ctx.fillRect(b.x, b.y, b.w, b.h));
+
+  // rotating eggs
+  enemyShots.forEach(b => {
+    ctx.save();
+    ctx.translate(b.x + b.w/2, b.y + b.h/2);
+    ctx.rotate(b.rotation);
+    ctx.drawImage(eggImg, -b.w/2, -b.h/2, b.w, b.h);
+    ctx.restore();
+  });
 }
 
-// Controls & shooting
 const keys = {};
 function handleKey(e) {
-    // prevent the page from scrolling when using arrows or space
-    if (
-      ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) ||
-      e.code === 'Space'
-    ) {
-      e.preventDefault();
-    }
-  
-    // track key state
-    keys[e.key] = e.type === 'keydown';
-  
-    // shoot on space
-    if (e.type === 'keydown' && e.code === 'Space') {
-      shoot();
-    }
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) || e.code==='Space') {
+    e.preventDefault();
   }
+  keys[e.key] = e.type==='keydown';
+  if (e.type==='keydown' && e.code==='Space') shoot();
+}
+
 function shoot() {
-  playerShots.push({ x: player.x + player.w/2 - 2, y: player.y, w:4, h:10 });
+  playerShots.push({
+    x: player.x + player.w/2 - 2,
+    y: player.y,
+    w: 4, h: 10
+  });
   playSound('player_shoot');
 }
 
-// Enemy fire
-let lastEnemyShot = 0;
+let lastEgg = 0;
 function maybeShootEnemy() {
-  if (enemyShots.length && enemyShots[enemyShots.length - 1].y < H * 0.25) return;
-  const alive = enemies.filter(e => e.alive);
-  if (!alive.length) return;
   const now = performance.now();
-  if (now - lastEnemyShot < 600) return;
-  lastEnemyShot = now;
-  const shooter = alive[Math.floor(Math.random() * alive.length)];
-  const x = shooter.baseX + fleetOffset + ENEMY_WIDTH/2 - 2;
-  enemyShots.push({ x, y: shooter.y + ENEMY_HEIGHT, w:4, h:10, vy:ENEMY_BULLET_SPEED });
+  if (now - lastEgg < 800) return;
+  lastEgg = now;
+  const alive = enemies.filter(e=>e.alive);
+  if (!alive.length) return;
+  const shooter = alive[Math.floor(Math.random()*alive.length)];
+  enemyShots.push({
+    x: shooter.baseX + fleetOffset + ENEMY_WIDTH/2 - 10,
+    y: shooter.y + ENEMY_HEIGHT,
+    w: 20, h: 28,
+    vy: EGG_SPEED,
+    rotation: 0
+  });
 }
 
-// Collisions
 function checkCollisions() {
-  enemyShots.forEach(b => {
-    if (rectsOverlap(player, b)) {
-      playSound('player_hit');
-      lives--;
-      HUD.livesEl.textContent = `Lives: ${lives}`;
-      b.y = H + 100;
-      if (lives === 0) endGame('lives');
-    }
-  });
   playerShots.forEach(b => {
     enemies.forEach(e => {
       if (!e.alive) return;
       const ex = e.baseX + fleetOffset;
-      if (rectsOverlap({ x: ex, y: e.y, w:ENEMY_WIDTH, h:ENEMY_HEIGHT }, b)) {
+      if (rectsOverlap({ x:ex, y:e.y, w:ENEMY_WIDTH, h:ENEMY_HEIGHT }, b)) {
         playSound('enemy_hit');
         e.alive = false;
         b.y = -100;
-        score += (ROWS - e.row) * 5;
+        score += (ROWS - e.row)*5;
         HUD.scoreEl.textContent = `Score: ${score}`;
-        if (!enemies.some(en => en.alive)) endGame('win');
+        if (!enemies.some(en=>en.alive)) endGame('win');
       }
     });
   });
 }
 
-function rectsOverlap(a, b) {
-  return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
+function rectsOverlap(a,b) {
+  return !(
+    a.x + a.w < b.x ||
+    b.x + b.w < a.x ||
+    a.y + a.h < b.y ||
+    b.y + b.h < a.y
+  );
 }
 
-function formatTime(sec) {
-  return sec < 60 ? `0:${sec.toString().padStart(2,'0')}` : `${Math.floor(sec/60)}:${(sec%60).toString().padStart(2,'0')}`;
+function formatTime(s) {
+  return s < 60
+    ? `0:${s.toString().padStart(2,'0')}`
+    : `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
 }
 
 function endGame(reason) {
   clearInterval(gameTimerID);
-  let msg = reason === 'lives' ? 'You Lost!' : reason === 'time' ? (score < 100 ? 'You can do better' : 'Winner!') : 'Champion!';
+  clearInterval(accelTimerID);
+  let msg;
+  if (reason === 'lives') msg = 'You Lost!';
+  else if (reason === 'time') msg = score < 100 ? 'You can do better' : 'Winner!';
+  else msg = 'Champion!';
   alert(`${msg}\nScore: ${score}`);
-  saveScore(score);
   showScreen('config');
-}
-
-function saveScore(score) {
-  const user = localStorage.getItem('gi_current_user');
-  if (!user) return;
-  const key = `gi_score_${user}`;
-  const best = parseInt(localStorage.getItem(key) || '0');
-  if (score > best) {
-    localStorage.setItem(key, score);
-    alert('New High Score!');
-  }
 }
