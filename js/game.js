@@ -10,13 +10,20 @@ const HUD    = {
 };
 
 let W = canvas.width, H = canvas.height;
+// Re‑sync the drawing buffer to the CSS size
 function resizeCanvas() {
-  const rect = canvas.getBoundingClientRect();
-  canvas.width  = rect.width;
-  canvas.height = rect.height;
-  W = canvas.width;
-  H = canvas.height;
+  const cw = canvas.clientWidth;
+  const ch = canvas.clientHeight;
+  // only when it actually has space
+  if (cw > 0 && ch > 0 && (canvas.width !== cw || canvas.height !== ch)) {
+    canvas.width  = cw;
+    canvas.height = ch;
+    W = cw;
+    H = ch;
+  }
 }
+
+// call once now, and again whenever the window resizes
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
@@ -44,6 +51,7 @@ let lastFrame = 0, shootKey = 'Space';
 let gameTimerID;
 
 export function startGame(conf) {
+  resizeCanvas();
   shootKey = conf.shootKey || 'Space';
   timeLeft = conf.time   || 120;
   score    = 0;

@@ -1,178 +1,185 @@
 /* -------------------------------------------------------------
-   Global Stylesheet for “Galactic Invaders” – Space‑Invaders clone
-   Author: <Your Names>
+   Global Stylesheet for “Galactic Invaders” – Space‑Invaders clone
+   Author: <Your Names>
    Note: All comments are in English per course request
    ------------------------------------------------------------- */
 
-/* ========== CSS Reset & Defaults ========== */
+/* ========== CSS Reset & Defaults ========== */
 * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: "Segoe UI", Tahoma, Verdana, sans-serif;
+  background-color: #0b0d17;  /* subtle dark blue backdrop */
+  color: #f5f7fa;
+}
+
+:root {
+  --accent: #00eaff;      /* primary accent color */
+  --enemy-red: #ff4141;
+  --enemy-orange: #ffb341;
+  --enemy-yellow: #fff83d;
+  --enemy-cyan: #41faff;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  transition: background 0.25s, color 0.25s;
+}
+button:hover {
+  background: var(--accent);
+  color: #0b0d17;
+}
+
+/* ========== Layout Sections ========== */
+header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(90deg, #1b1e2b 0%, #2c3042 100%);
+}
+header img {
+  height: 48px;
+}
+
+nav {
+  display: flex;
+  gap: 1rem;
+  padding: 0.5rem 1.5rem;
+  background: #131620;
+}
+
+main {
+  flex: 1;
+  position: relative;
+}
+
+/* Each screen is a flex‑box container; JS toggles [hidden] attribute */
+.screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding: 2rem 1rem;
+}
+.screen[hidden] {
+  display: none !important;
+}
+
+/* ========== Game Screen ========== */
+#game {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #000012;          /* deep space */
+}
+
+/* Responsive canvas */
+#gameCanvas {
+  border: 2px solid #444;
+  background: #000;
+  width: 90vmin;               /* 90% of the smaller viewport dimension */
+  height: auto;                /* aspect-ratio will preserve height */
+  max-width: 900px;
+  max-height: 600px;
+  aspect-ratio: 900 / 600;     /* preserve original 3:2 ratio */
+}
+
+/* Heads‑up Display at top‑center of game screen */
+#hud {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2rem;
+  font-weight: 600;
+  font-size: 1.15rem;
+  pointer-events: none;        /* clicks pass through */
+}
+
+#newGameBtn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+}
+
+/* ========== Forms (Register / Login / Config) ========== */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 320px;
+}
+input[type="text"],
+input[type="password"],
+input[type="email"],
+select {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #1b1e2b;
+  color: #f5f7fa;
+}
+
+/* ========== About Dialog (modal) ========== */
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+dialog {
+  border: none;
+  border-radius: 8px;
+  background: #202437;
+  color: #e4e7ef;
+  padding: 1.5rem 2rem;
+  width: 60%;
+  max-width: 600px;
+  position: relative;
+}
+
+#closeAbout {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  color: #e4e7ef;
+}
+
+/* ========== Media Queries ========== */
+/* Ensure minimum resolution of 1366×768 displays as required */
+@media (max-width: 1365px), (max-height: 767px) {
+  header, nav, footer {
+    font-size: 0.9rem;
   }
-  
-  html, body {
-    height: 100%;
-    font-family: "Segoe UI", Tahoma, Verdana, sans-serif;
-    background-color: #0b0d17;  /* subtle dark blue backdrop */
-    color: #f5f7fa;
-  }
-  
-  :root {
-    --accent: #00eaff;      /* primary accent color */
-    --enemy-red: #ff4141;
-    --enemy-orange: #ffb341;
-    --enemy-yellow: #fff83d;
-    --enemy-cyan: #41faff;
-  }
-  
-  button {
-    font: inherit;
-    cursor: pointer;
-    background: transparent;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    transition: background 0.25s, color 0.25s;
-  }
-  button:hover {
-    background: var(--accent);
-    color: #0b0d17;
-  }
-  
-  /* ========== Layout Sections ========== */
-  header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 1.5rem;
-    background: linear-gradient(90deg, #1b1e2b 0%, #2c3042 100%);
-  }
-  header img {
-    height: 48px;
-  }
-  
-  nav {
-    display: flex;
-    gap: 1rem;
-    padding: 0.5rem 1.5rem;
-    background: #131620;
-  }
-  
-  main {
-    flex: 1;
-    position: relative;
-  }
-  
-  /* Each screen is a flex‑box container; JS toggles [hidden] attribute */
-  .screen {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-    padding: 2rem 1rem;
-  }
-  .screen[hidden] {
-    display: none !important;
-  }
-  
-  /* ========== Game Screen ========== */
-  #game {
-    background: #000012;          /* deep space */
-  }
-  
-  /* Center the canvas and keep it responsive */
+  /* fallback for very small viewports */
   #gameCanvas {
-    border: 2px solid #444;
-    background: #000;             /* pure black inside playfield */
-    width: 900px;
-    height: 600px;
-    max-width: 100%;
-    max-height: 100%;
+    width: 80vw;
+    height: auto;
+    aspect-ratio: 16 / 9;
   }
-  
-  /* Heads‑up Display at top‑center of game screen */
-  #hud {
-    position: absolute;
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 2rem;
-    font-weight: 600;
-    font-size: 1.15rem;
-    pointer-events: none;        /* clicks pass through */
+}
+
+/* Larger screens – allow generous canvas */
+@media (min-width: 1600px) {
+  #gameCanvas {
+    width: 1100px;
+    height: auto;
+    aspect-ratio: 1100 / 733;
   }
-  
-  #newGameBtn {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-  }
-  
-  /* ========== Forms (Register / Login / Config) ========== */
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    width: 320px;
-  }
-  input[type="text"],
-  input[type="password"],
-  input[type="email"],
-  select {
-    width: 100%;
-    padding: 0.5rem;
-    border-radius: 4px;
-    border: 1px solid #444;
-    background: #1b1e2b;
-    color: #f5f7fa;
-  }
-  
-  /* ========== About Dialog (modal) ========== */
-  dialog::backdrop {
-    background: rgba(0, 0, 0, 0.6);
-  }
-  
-  dialog {
-    border: none;
-    border-radius: 8px;
-    background: #202437;
-    color: #e4e7ef;
-    padding: 1.5rem 2rem;
-    width: 60%;
-    max-width: 600px;
-    position: relative;
-  }
-  
-  #closeAbout {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    background: transparent;
-    border: none;
-    font-size: 1.25rem;
-    color: #e4e7ef;
-  }
-  
-  /* ========== Media Queries ========== */
-  /* Ensure minimum resolution of 1366×768 displays as required */
-  @media (max-width: 1365px), (max-height: 767px) {
-    header, nav, footer {
-      font-size: 0.9rem;
-    }
-    #gameCanvas {
-      width: 80vw;
-      height: 53.33vw; /* keep 16 : 9 aspect */
-    }
-  }
-  
-  /* Larger screens – allow generous canvas */
-  @media (min-width: 1600px) {
-    #gameCanvas {
-      width: 1100px;
-      height: 733px;
-    }
-  }
+}
