@@ -52,6 +52,8 @@ header img {
 
 nav {
   display: flex;
+  justify-content: center;  /* center content horizontally */
+  align-items: center;
   gap: 1rem;
   padding: 0.5rem 1.5rem;
   background: #131620;
