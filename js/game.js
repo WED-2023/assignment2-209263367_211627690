@@ -1,10 +1,11 @@
 // js/game.js
 import { showScreen } from './utils.js';
+//import { conf } from './config.js';
 
 // — preload assets —
 const eggImg   = new Image(); eggImg.src   = 'assets/img/egg.png';
 const enemyImg = new Image(); enemyImg.src = 'assets/img/enemy.png';
-const playerImg = new Image(); playerImg.src = 'assets/img/spaceship.png';
+let playerImg = new Image();
 let themeAudio = null;
 
 // — canvas & HUD —
@@ -52,6 +53,8 @@ const keys = {};
 // — start a new game —
 export function startGame(conf) {
   resizeCanvas();
+  playerImg = new Image();
+  playerImg.src = `assets/img/${conf.spaceshipImg || 'spaceship_blue.png'}`;
 
   // config
   shootKey = conf.shootKey || 'Space';

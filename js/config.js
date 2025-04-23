@@ -30,8 +30,17 @@ cfgSec.innerHTML = `
       <input type="number" id="duration" min="120" value="120" required>
     </label>
 
+    <label>Choose your spaceship:
+      <select id="spaceship">
+        <option value="spaceship_blue.png">Blue</option>
+        <option value="spaceship_red.png">Red</option>
+        <option value="spaceship_orange.png">Orange</option>
+      </select>
+    </label>
+
     <button id="startBtn">Start Game</button>
   </form>`;
+
 
 /* ============================================================
    Form submission – start the game
@@ -46,8 +55,10 @@ document.getElementById('configForm').addEventListener('submit', e => {
   }
   const conf = {
     shootKey: document.getElementById('shootKey').value,
-    time: Math.max(120, parseInt(document.getElementById('duration').value, 10))
+    time: Math.max(120, parseInt(document.getElementById('duration').value, 10)),
+    spaceshipImg: document.getElementById('spaceship').value
   };
+
   startGame(conf);
 });
 
