@@ -53,15 +53,25 @@
       <section id="config"   class="screen"></section>
 
       <!-- ===== Game Screen ===== -->
-      <section id="game"     class="screen">
+     <section id="game" class="screen">
+      <div id="gameWrapper">
+        <video id="gameBgVideo" autoplay muted loop playsinline>
+          <source src="assets/img/wallpaper.mp4" type="video/mp4" />
+        </video>
         <canvas id="gameCanvas" width="900" height="600"></canvas>
-        <div id="hud">
-          <span id="score">Score: 0</span>
-          <span id="lives">Lives: 3</span>
-          <span id="time">Time: 02:00</span>
-        </div>
-        <button id="newGameBtn">New Game</button>
-      </section>
+      </div>
+
+      <div id="hud">
+        <span id="score">Score: 0</span>
+        <span id="lives">Lives: 3</span>
+        <span id="time">Time: 02:00</span>
+      </div>
+      <button id="newGameBtn">New Game</button>
+    </section>
+
+
+
+      <section id="gameOverScreen" class="screen" hidden></section>
     </main>
 
     <!-- ================= FOOTER ================= -->

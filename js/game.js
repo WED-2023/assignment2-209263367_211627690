@@ -1,13 +1,15 @@
 // js/game.js
-import { showScreen } from './utils.js';
-//import { conf } from './config.js';
+import { showScreen, createElement } from './utils.js';
+
+let globalConf = {}; // at top
+
 
 // — preload assets —
+window.endAudio = null;
 const eggImg   = new Image(); eggImg.src   = 'assets/img/egg.png';
 const enemyImg = new Image(); enemyImg.src = 'assets/img/enemy.png';
 let playerImg = new Image();
 let themeAudio = null;
-
 // — canvas & HUD —
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
@@ -48,10 +50,12 @@ let player, enemies, playerShots, enemyShots;
 let fleetOffset, fleetDir, speedX, eggSpeed;
 let accelSteps, accelTimerID, gameTimerID;
 let shootKey = 'Space', score, lives, timeLeft, lastFrame;
+let canShootAgain = true;
 const keys = {};
 
 // — start a new game —
 export function startGame(conf) {
+  globalConf = conf;
   resizeCanvas();
   playerImg = new Image();
   playerImg.src = `assets/img/${conf.spaceshipImg || 'spaceship_blue.png'}`;
@@ -118,12 +122,14 @@ export function startGame(conf) {
     themeAudio.currentTime = 0;
   }
   themeAudio = new Audio('assets/img/theme.mp3');
+  themeAudio.volume = 0.3;
   themeAudio.loop = true;
   themeAudio.play();
 }
 
 // — lay out 5×4 grid of enemies, centered —
 function initEnemies() {
+  canShootAgain = true;
   enemies = [];
   const totalW = COLS * ENEMY_W + (COLS - 1) * ENEMY_GAP_X;
   const startX = (W - totalW) / 2;
@@ -156,10 +162,16 @@ function update(dt) {
   if (keys.ArrowUp)    player.y -= PLAYER_SPEED * dt;
   if (keys.ArrowDown)  player.y += PLAYER_SPEED * dt;
 
-  // clamp player
-  const minPY = H * (1 - PLAYER_AREA);
-  player.x = Math.max(0, Math.min(W - player.w, player.x));
-  player.y = Math.max(minPY, Math.min(H - player.h, player.y));
+  // clamp player strictly within canvas
+  const minPX = 0;
+  const maxPX = canvas.width - player.w;
+  const minPY = canvas.height * (1 - PLAYER_AREA);
+  const maxPY = canvas.height - player.h;
+
+  player.x = Math.max(minPX, Math.min(maxPX, player.x));
+  player.y = Math.max(minPY, Math.min(maxPY, player.y));
+
+
 
   // move shots
   playerShots.forEach(b => b.y -= BULLET_SPEED * dt);
@@ -174,8 +186,9 @@ function update(dt) {
     const xs   = alive.map(e => e.baseX + fleetOffset);
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs) + ENEMY_W;
-    if (maxX > W) {
-      fleetOffset -= (maxX - W);
+
+    if (maxX > canvas.width) {
+      fleetOffset -= (maxX - canvas.width);
       fleetDir = -1;
       enemies.forEach(e => e.y += ENEMY_H);
     } else if (minX < 0) {
@@ -184,6 +197,7 @@ function update(dt) {
       enemies.forEach(e => e.y += ENEMY_H);
     }
   }
+
 
   // remove off-screen
   playerShots = playerShots.filter(b => b.y > -10);
@@ -244,13 +258,21 @@ function shoot() {
 }
 
 // — enemies drop eggs occasionally —
-let lastEgg = 0;
+
 function maybeShootEnemy() {
-  const now = performance.now();
-  if (now - lastEgg < 800) return;
-  lastEgg = now;
+  // Only allow new shot if no egg exists OR the last egg passed 3/4 of the screen
+  if (!canShootAgain) {
+    const active = enemyShots[enemyShots.length - 1];
+    if (active && active.y > H * 0.75) {
+      canShootAgain = true;
+    } else {
+      return;
+    }
+  }
+
   const alive = enemies.filter(e => e.alive);
   if (!alive.length) return;
+
   const s = alive[Math.floor(Math.random() * alive.length)];
   enemyShots.push({
     x: s.baseX + fleetOffset + ENEMY_W/2 - 10,
@@ -259,7 +281,10 @@ function maybeShootEnemy() {
     vy: eggSpeed,
     rotation: 0
   });
+
+  canShootAgain = false; // prevent next shot until current egg reaches 3/4 screen
 }
+
 
 // — collision detection —
 function checkCollisions() {
@@ -267,9 +292,10 @@ function checkCollisions() {
   for (let i = 0; i < enemyShots.length; i++) {
     const b = enemyShots[i];
     if (rectsOverlap(player, b)) {
-      new Audio('assets/img/chickenDeath.mp3').play();
+      new Audio('assets/img/ally_hit.mp3').play();
       enemyShots.splice(i--, 1);
       lives--;
+      canShootAgain = true;
       HUD.livesEl.textContent = `Lives: ${lives}`;
       if (lives <= 0) {
         endGame('lives');
@@ -315,17 +341,87 @@ function formatTime(sec) {
 function endGame(reason) {
   clearInterval(gameTimerID);
   clearInterval(accelTimerID);
+  if (themeAudio) themeAudio.pause();
 
-  if (themeAudio) {
-    themeAudio.pause();
-    themeAudio.currentTime = 0;
-  }
+  // Stop any existing end audio first
+  if (window.endAudio) {
+  window.endAudio.pause();
+  window.endAudio.currentTime = 0;
+}
 
-  let msg;
+  const won = reason === 'win' || (reason === 'time' && score >= 100);
+  window.endAudio = new Audio(won ? 'assets/img/win.mp3' : 'assets/img/sad-violin.mp3');
+  window.endAudio.volume = 0.2
+  window.endAudio.play();
+
+  const username = localStorage.getItem('gi_current_user');
+  renderGameOverScreen(reason, username || 'Player', score);
+}
+
+
+
+function getPlayerHistory(playerName) {
+  const raw = localStorage.getItem(`scoreHistory_${playerName}`);
+  return raw ? JSON.parse(raw) : [];
+}
+
+function savePlayerScore(playerName, score) {
+  if (!playerName || !playerName.trim()) return [];
+  const history = getPlayerHistory(playerName);
+  history.push({ score, date: new Date().toLocaleString() });
+  localStorage.setItem(`scoreHistory_${playerName}`, JSON.stringify(history));
+  return history;
+}
+
+export function clearPlayerHistory(playerName) {
+  localStorage.removeItem(`scoreHistory_${playerName}`);
+}
+
+
+function renderGameOverScreen(reason, playerName, score) {
+  const screen = document.getElementById('gameOverScreen');
+  screen.innerHTML = '';
+  screen.classList.add('game-over-visible');
+
+  let msg = '';
   if (reason === 'lives') msg = 'You Lost!';
   else if (reason === 'time') msg = score < 100 ? 'You can do better' : 'Winner!';
   else msg = 'Champion!';
 
-  alert(`${msg}\nScore: ${score}`);
-  showScreen('config');
+  const history = savePlayerScore(playerName, score).sort((a, b) => b.score - a.score);
+  const rank = history.findIndex(h => h.score === score) + 1;
+
+  const table = createElement('table', { class: 'score-table' }, [
+    createElement('thead', {}, [
+      createElement('tr', {}, [
+        createElement('th', {}, ['#']),
+        createElement('th', {}, ['Score']),
+        createElement('th', {}, ['Date'])
+      ])
+    ]),
+    createElement('tbody', {}, history.map((h, i) =>
+      createElement('tr', {}, [
+        createElement('td', {}, [`${i + 1}`]),
+        createElement('td', {}, [`${h.score} pts`]),
+        createElement('td', {}, [h.date])
+      ])
+    ))
+  ]);
+
+  const container = createElement('div', { class: 'game-over-box' }, [
+    createElement('h2', { class: 'game-over-title' }, [msg]),
+    createElement('p', {}, [`Final Score: ${score}`]),
+    createElement('p', {}, [`Current Rank: #${rank}`]),
+    createElement('h3', {}, ['Your Score History']),
+    table,
+    (() => {
+      const btn = createElement('button', { id: 'playAgainBtn', class: 'btn-primary' }, ['New Game']);
+      btn.addEventListener('click', () => showScreen('config'));
+      return btn;
+    })()
+  ]);
+
+  screen.appendChild(container);
+  showScreen('gameOverScreen');
 }
+

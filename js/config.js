@@ -53,6 +53,7 @@ document.getElementById('configForm').addEventListener('submit', e => {
     showScreen('login');
     return;
   }
+
   const conf = {
     shootKey: document.getElementById('shootKey').value,
     time: Math.max(120, parseInt(document.getElementById('duration').value, 10)),
