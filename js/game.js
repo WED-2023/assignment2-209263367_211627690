@@ -1,10 +1,16 @@
 // js/game.js
-import { showScreen, playSound } from './utils.js';
+import { showScreen, createElement } from './utils.js';
 
-// preload the egg sprite
-const eggImg = new Image();
-eggImg.src = 'assets/img/egg.png';
+let globalConf = {}; // at top
 
+
+// — preload assets —
+window.endAudio = null;
+const eggImg   = new Image(); eggImg.src   = 'assets/img/egg.png';
+const enemyImg = new Image(); enemyImg.src = 'assets/img/enemy.png';
+let playerImg = new Image();
+let themeAudio = null;
+// — canvas & HUD —
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
 const HUD    = {
@@ -13,69 +19,60 @@ const HUD    = {
   timeEl : document.getElementById('time')
 };
 
-// screen size
-let W = canvas.width, H = canvas.height;
+// — keep canvas size in sync with CSS —
+let W = 0, H = 0;
 function resizeCanvas() {
-  const cw = canvas.clientWidth, ch = canvas.clientHeight;
-  if (cw > 0 && ch > 0 && (canvas.width !== cw || canvas.height !== ch)) {
-    canvas.width  = cw;
-    canvas.height = ch;
-    W = cw; H = ch;
-  }
+  const r = canvas.getBoundingClientRect();
+  canvas.width  = r.width;
+  canvas.height = r.height;
+  W = r.width; H = r.height;
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// grid
-const ROWS = 4, COLS = 5;
-const ENEMY_WIDTH  = 40, ENEMY_HEIGHT = 30;
+// — game constants —
+const ROWS           = 4;
+const COLS           = 5;
+const ENEMY_W        = 40;
+const ENEMY_H        = 30;
+const ENEMY_GAP_X    = 20;
+const ENEMY_GAP_Y    = 20;
+const ENEMY_START_Y  = 60;
+const PLAYER_AREA    = 0.4;
+const PLAYER_SPEED   = 300;
+const BULLET_SPEED   = 450;
+const ACCEL_INTERVAL = 5000;
+const MAX_ACCEL_STEPS= 4;
+const ACCEL_FACTOR   = 1.2;
 
-// player constants
-const PLAYER_AREA  = 0.4;
-const PLAYER_SPEED = 300;
-const BULLET_SPEED = 450;
-
-// enemy bullet speed
-let eggSpeed    = 260;
-
-// fleet movement & acceleration
-let fleetOffset = 0;
-let fleetDir    = 1;
-let vDir        = 1;
-let speedX      = 60;
-let speedY      = 20;
-const ACCEL_INTERVAL   = 5000;
-const MAX_ACCEL_STEPS  = 4;
-const ACCEL_FACTOR     = 1.2;
-let accelSteps   = 0;
-let accelTimerID = null;
-
-// enemy vertical bounds
-let initialMinEnemyY = 0;
-
+// — state —
 let player, enemies, playerShots, enemyShots;
-let score, lives, timeLeft;
-let shootKey = 'Space';       // comes from config
-let lastFrame = 0, gameTimerID;
+let fleetOffset, fleetDir, speedX, eggSpeed;
+let accelSteps, accelTimerID, gameTimerID;
+let shootKey = 'Space', score, lives, timeLeft, lastFrame;
+let canShootAgain = true;
+const keys = {};
 
-// Start a new game with the provided config
+// — start a new game —
 export function startGame(conf) {
+  globalConf = conf;
   resizeCanvas();
-  // load configured shoot key
+  playerImg = new Image();
+  playerImg.src = `assets/img/${conf.spaceshipImg || 'spaceship_blue.png'}`;
+
+  // config
   shootKey = conf.shootKey || 'Space';
   timeLeft = conf.time   || 120;
   score    = 0;
   lives    = 3;
 
-  // initialize player at a random position within the bottom 40%
+  // init player in bottom 40%
   const pw = 50, ph = 30;
-  const areaTop = H * (1 - PLAYER_AREA);
-  const areaHeight = PLAYER_AREA * H - ph;
+  const minPY = H * (1 - PLAYER_AREA);
   player = {
-    w: pw,
-    h: ph,
-    x: Math.random() * (W - pw),
-    y: areaTop + Math.random() * areaHeight
+    w: pw, h: ph,
+    x: (W - pw)/2,
+    y: minPY + (H - minPY - ph)/2
   };
 
   playerShots = [];
@@ -84,54 +81,70 @@ export function startGame(conf) {
 
   HUD.scoreEl.textContent = `Score: ${score}`;
   HUD.livesEl.textContent = `Lives: ${lives}`;
-  HUD.timeEl.textContent  = formatTime(timeLeft);
+  HUD.timeEl    .textContent = formatTime(timeLeft);
 
-  // reset acceleration
+  // fleet movement
+  fleetOffset = 0;
+  fleetDir    = 1;
+  speedX      = 60;
+  eggSpeed    = 260;
+
+  // acceleration (speeds up horizontally & egg speed)
   clearInterval(accelTimerID);
   accelSteps = 0;
-  speedX = 60; speedY = 20; eggSpeed = 260; vDir = 1;
   accelTimerID = setInterval(() => {
     if (accelSteps < MAX_ACCEL_STEPS) {
       accelSteps++;
-      speedX *= ACCEL_FACTOR;
-      speedY *= ACCEL_FACTOR;
+      speedX   *= ACCEL_FACTOR;
       eggSpeed *= ACCEL_FACTOR;
       enemyShots.forEach(b => b.vy *= ACCEL_FACTOR);
     }
   }, ACCEL_INTERVAL);
 
-  // game timer
+  // countdown timer
   clearInterval(gameTimerID);
   gameTimerID = setInterval(() => {
     if (--timeLeft <= 0) endGame('time');
     HUD.timeEl.textContent = formatTime(timeLeft);
   }, 1000);
 
+  // input
   window.addEventListener('keydown', handleKey);
   window.addEventListener('keyup',   handleKey);
 
   lastFrame = performance.now();
   requestAnimationFrame(loop);
   showScreen('game');
+
+  // play theme
+  if (themeAudio) {
+    themeAudio.pause();
+    themeAudio.currentTime = 0;
+  }
+  themeAudio = new Audio('assets/img/theme.mp3');
+  themeAudio.volume = 0.3;
+  themeAudio.loop = true;
+  themeAudio.play();
 }
 
+// — lay out 5×4 grid of enemies, centered —
 function initEnemies() {
+  canShootAgain = true;
   enemies = [];
-  const gapX   = W / (COLS + 1);
-  const startY = H * 0.10;
-  const gapY   = H * 0.08;
-
+  const totalW = COLS * ENEMY_W + (COLS - 1) * ENEMY_GAP_X;
+  const startX = (W - totalW) / 2;
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
-      const x = gapX * (c + 1);
-      const y = startY + r * gapY;
+      const x = startX + c * (ENEMY_W + ENEMY_GAP_X);
+      const y = ENEMY_START_Y + r * (ENEMY_H + ENEMY_GAP_Y);
       enemies.push({ baseX: x, y, row: r, alive: true });
     }
   }
-  initialMinEnemyY = Math.min(...enemies.map(e => e.y));
 }
 
+// — main game loop —
 function loop(ts) {
+  resizeCanvas();
   const dt = (ts - lastFrame) / 1000;
   lastFrame = ts;
   update(dt);
@@ -141,45 +154,52 @@ function loop(ts) {
   }
 }
 
+// — update positions & handle logic —
 function update(dt) {
   // player movement
   if (keys.ArrowLeft)  player.x -= PLAYER_SPEED * dt;
   if (keys.ArrowRight) player.x += PLAYER_SPEED * dt;
   if (keys.ArrowUp)    player.y -= PLAYER_SPEED * dt;
   if (keys.ArrowDown)  player.y += PLAYER_SPEED * dt;
-  const minPY = H * (1 - PLAYER_AREA);
-  player.x = Math.max(0, Math.min(W - player.w, player.x));
-  player.y = Math.max(minPY, Math.min(H - player.h, player.y));
 
-  // move player bullets
+  // clamp player strictly within canvas
+  const minPX = 0;
+  const maxPX = canvas.width - player.w;
+  const minPY = canvas.height * (1 - PLAYER_AREA);
+  const maxPY = canvas.height - player.h;
+
+  player.x = Math.max(minPX, Math.min(maxPX, player.x));
+  player.y = Math.max(minPY, Math.min(maxPY, player.y));
+
+
+
+  // move shots
   playerShots.forEach(b => b.y -= BULLET_SPEED * dt);
+  enemyShots.forEach(b => b.y += b.vy * dt);
 
-  // move enemy eggs
-  enemyShots.forEach(b => {
-    b.y += b.vy * dt;
-    b.rotation += dt * 5;
-  });
-
-  // fleet drift
+  // move fleet horizontally
   fleetOffset += fleetDir * speedX * dt;
-  enemies.forEach(e => { if (e.alive) e.y += speedY * dt * vDir; });
 
-  // horizontal bounce
+  // on edge, reverse & drop one row
   const alive = enemies.filter(e => e.alive);
   if (alive.length) {
-    const xs = alive.map(e => e.baseX + fleetOffset);
+    const xs   = alive.map(e => e.baseX + fleetOffset);
     const minX = Math.min(...xs);
-    const maxX = Math.max(...xs) + ENEMY_WIDTH;
-    if (maxX > W) { fleetDir = -1; fleetOffset -= (maxX - W); }
-    else if (minX < 0) { fleetDir = 1; fleetOffset += -minX; }
+    const maxX = Math.max(...xs) + ENEMY_W;
+
+    if (maxX > canvas.width) {
+      fleetOffset -= (maxX - canvas.width);
+      fleetDir = -1;
+      enemies.forEach(e => e.y += ENEMY_H);
+    } else if (minX < 0) {
+      fleetOffset += -minX;
+      fleetDir = 1;
+      enemies.forEach(e => e.y += ENEMY_H);
+    }
   }
 
-  // vertical bounce at 60% height
-  const bottomL = H * (1 - PLAYER_AREA);
-  if (vDir > 0 && alive.some(e => e.y >= bottomL)) vDir = -1;
-  else if (vDir < 0 && alive.some(e => e.y <= initialMinEnemyY)) vDir = 1;
 
-  // cull off-screen shots
+  // remove off-screen
   playerShots = playerShots.filter(b => b.y > -10);
   enemyShots  = enemyShots.filter(b => b.y < H + 10);
 
@@ -187,29 +207,25 @@ function update(dt) {
   checkCollisions();
 }
 
+// — draw everything —
 function render() {
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#000012';
-  ctx.fillRect(0, 0, W, H);
 
-  // draw player
-  ctx.fillStyle = 'lime';
-  ctx.fillRect(player.x, player.y, player.w, player.h);
+  // draw player as spaceship image
+  ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
 
-  // draw enemies
+  // enemies as transparent PNG
   enemies.forEach(e => {
     if (!e.alive) return;
     const x = e.baseX + fleetOffset;
-    const cols = ['red','orange','yellow','cyan'];
-    ctx.fillStyle = cols[e.row];
-    ctx.fillRect(x, e.y, ENEMY_WIDTH, ENEMY_HEIGHT);
+    ctx.drawImage(enemyImg, x, e.y, ENEMY_W, ENEMY_H);
   });
 
-  // draw player bullets
+  // player bullets
   ctx.fillStyle = 'white';
   playerShots.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
 
-  // draw rotating eggs
+  // eggs
   enemyShots.forEach(b => {
     ctx.save();
     ctx.translate(b.x + b.w/2, b.y + b.h/2);
@@ -219,62 +235,67 @@ function render() {
   });
 }
 
-// keep track of pressed keys
-const keys = {};
-
+// — keyboard handling —
 function handleKey(e) {
-  // normalize single-character to uppercase, but map Space via code
-  let k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
-  if (e.code === 'Space') k = 'Space';
+  const raw = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  const k   = (e.code === 'Space') ? 'Space' : raw;
 
-  // prevent default on arrows or the shootKey
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) || k === shootKey) {
     e.preventDefault();
   }
-
-  // track down/up
   keys[e.key] = (e.type === 'keydown');
-
-  // fire when the configured key is pressed
-  if (e.type === 'keydown' && k === shootKey) {
-    shoot();
-  }
+  if (e.type === 'keydown' && k === shootKey) shoot();
 }
 
+// — fire player shot —
 function shoot() {
   playerShots.push({
     x: player.x + player.w/2 - 2,
     y: player.y,
     w: 4, h: 10
   });
-  playSound('player_shoot');
+  new Audio('assets/img/shooting.mp3').play();
 }
 
-let lastEgg = 0;
+// — enemies drop eggs occasionally —
+
 function maybeShootEnemy() {
-  const now = performance.now();
-  if (now - lastEgg < 800) return;
-  lastEgg = now;
+  // Only allow new shot if no egg exists OR the last egg passed 3/4 of the screen
+  if (!canShootAgain) {
+    const active = enemyShots[enemyShots.length - 1];
+    if (active && active.y > H * 0.75) {
+      canShootAgain = true;
+    } else {
+      return;
+    }
+  }
+
   const alive = enemies.filter(e => e.alive);
   if (!alive.length) return;
+
   const s = alive[Math.floor(Math.random() * alive.length)];
   enemyShots.push({
-    x: s.baseX + fleetOffset + ENEMY_WIDTH/2 - 10,
-    y: s.y + ENEMY_HEIGHT,
+    x: s.baseX + fleetOffset + ENEMY_W/2 - 10,
+    y: s.y + ENEMY_H,
     w: 20, h: 28,
     vy: eggSpeed,
     rotation: 0
   });
+
+  canShootAgain = false; // prevent next shot until current egg reaches 3/4 screen
 }
 
+
+// — collision detection —
 function checkCollisions() {
-  // eggs vs player
+  // eggs hit player
   for (let i = 0; i < enemyShots.length; i++) {
     const b = enemyShots[i];
     if (rectsOverlap(player, b)) {
-      playSound('player_hit');
+      new Audio('assets/img/ally_hit.mp3').play();
       enemyShots.splice(i--, 1);
       lives--;
+      canShootAgain = true;
       HUD.livesEl.textContent = `Lives: ${lives}`;
       if (lives <= 0) {
         endGame('lives');
@@ -282,13 +303,13 @@ function checkCollisions() {
       }
     }
   }
-  // bullets vs enemies
+  // bullets hit enemies
   playerShots.forEach(b => {
     enemies.forEach(e => {
       if (!e.alive) return;
       const ex = e.baseX + fleetOffset;
-      if (rectsOverlap({ x: ex, y: e.y, w: ENEMY_WIDTH, h: ENEMY_HEIGHT }, b)) {
-        playSound('enemy_hit');
+      if (rectsOverlap({ x: ex, y: e.y, w: ENEMY_W, h: ENEMY_H }, b)) {
+        new Audio('assets/img/chickenDeath.mp3').play();
         e.alive = false;
         b.y = -100;
         score += (ROWS - e.row) * 5;
@@ -299,6 +320,7 @@ function checkCollisions() {
   });
 }
 
+// — AABB overlap test —
 function rectsOverlap(a, b) {
   return !(
     a.x + a.w < b.x ||
@@ -308,19 +330,98 @@ function rectsOverlap(a, b) {
   );
 }
 
+// — format time mm:ss —
 function formatTime(sec) {
   return sec < 60
     ? `0:${sec.toString().padStart(2,'0')}`
     : `${Math.floor(sec/60)}:${(sec % 60).toString().padStart(2,'0')}`;
 }
 
+// — end game —
 function endGame(reason) {
   clearInterval(gameTimerID);
   clearInterval(accelTimerID);
-  let msg;
+  if (themeAudio) themeAudio.pause();
+
+  // Stop any existing end audio first
+  if (window.endAudio) {
+  window.endAudio.pause();
+  window.endAudio.currentTime = 0;
+}
+
+  const won = reason === 'win' || (reason === 'time' && score >= 100);
+  window.endAudio = new Audio(won ? 'assets/img/win.mp3' : 'assets/img/sad-violin.mp3');
+  window.endAudio.volume = 0.2
+  window.endAudio.play();
+
+  const username = localStorage.getItem('gi_current_user');
+  renderGameOverScreen(reason, username || 'Player', score);
+}
+
+
+
+function getPlayerHistory(playerName) {
+  const raw = localStorage.getItem(`scoreHistory_${playerName}`);
+  return raw ? JSON.parse(raw) : [];
+}
+
+function savePlayerScore(playerName, score) {
+  if (!playerName || !playerName.trim()) return [];
+  const history = getPlayerHistory(playerName);
+  history.push({ score, date: new Date().toLocaleString() });
+  localStorage.setItem(`scoreHistory_${playerName}`, JSON.stringify(history));
+  return history;
+}
+
+export function clearPlayerHistory(playerName) {
+  localStorage.removeItem(`scoreHistory_${playerName}`);
+}
+
+
+function renderGameOverScreen(reason, playerName, score) {
+  const screen = document.getElementById('gameOverScreen');
+  screen.innerHTML = '';
+  screen.classList.add('game-over-visible');
+
+  let msg = '';
   if (reason === 'lives') msg = 'You Lost!';
   else if (reason === 'time') msg = score < 100 ? 'You can do better' : 'Winner!';
   else msg = 'Champion!';
-  alert(`${msg}\nScore: ${score}`);
-  showScreen('config');
+
+  const history = savePlayerScore(playerName, score).sort((a, b) => b.score - a.score);
+  const rank = history.findIndex(h => h.score === score) + 1;
+
+  const table = createElement('table', { class: 'score-table' }, [
+    createElement('thead', {}, [
+      createElement('tr', {}, [
+        createElement('th', {}, ['#']),
+        createElement('th', {}, ['Score']),
+        createElement('th', {}, ['Date'])
+      ])
+    ]),
+    createElement('tbody', {}, history.map((h, i) =>
+      createElement('tr', {}, [
+        createElement('td', {}, [`${i + 1}`]),
+        createElement('td', {}, [`${h.score} pts`]),
+        createElement('td', {}, [h.date])
+      ])
+    ))
+  ]);
+
+  const container = createElement('div', { class: 'game-over-box' }, [
+    createElement('h2', { class: 'game-over-title' }, [msg]),
+    createElement('p', {}, [`Final Score: ${score}`]),
+    createElement('p', {}, [`Current Rank: #${rank}`]),
+    createElement('h3', {}, ['Your Score History']),
+    table,
+    (() => {
+      const btn = createElement('button', { id: 'playAgainBtn', class: 'btn-primary' }, ['New Game']);
+      btn.addEventListener('click', () => showScreen('config'));
+      return btn;
+    })()
+  ]);
+
+  screen.appendChild(container);
+  showScreen('gameOverScreen');
 }
+

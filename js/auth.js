@@ -1,7 +1,7 @@
 // js/auth.js – Registration, Login & Nav‑Toggle logic
 
 import { showScreen } from './utils.js';
-
+import { clearPlayerHistory } from './game.js';
 const USERS_KEY        = 'gi_users';
 const CURRENT_USER_KEY = 'gi_current_user';
 
@@ -158,12 +158,6 @@ document.querySelectorAll('nav button[data-screen]').forEach(btn => {
   });
 });
 
-// Logout behavior
-navLogout.addEventListener('click', () => {
-  localStorage.removeItem(CURRENT_USER_KEY);
-  updateNav();
-  showScreen('welcome');
-});
 
 // Close About dialog
 const aboutDlg = document.getElementById('aboutDialog');
@@ -173,3 +167,17 @@ window.addEventListener('keydown', e => { if (e.key === 'Escape') aboutDlg.close
 
 // Initial UI
 updateNav();
+
+
+navLogout.addEventListener('click', () => {
+  const CURRENT_USER_KEY = 'gi_current_user';
+  const user = localStorage.getItem(CURRENT_USER_KEY);
+
+  if (user) {
+    clearPlayerHistory(user); // תמחק את ההיסטוריה
+    localStorage.removeItem(CURRENT_USER_KEY); // תמחק את המשתמש המחובר
+  }
+
+  updateNav();
+  showScreen('welcome');
+});
