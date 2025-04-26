@@ -334,4 +334,14 @@ dialog {
 }
 
 
-/* game background*/
+/* ========= Full screen ========= */
+
+#game {
+  height: 100vh; 
+  scroll-margin-top: 60px; 
+}
+
+#welcome {
+  height: 100vh;
+  scroll-margin-top: 60px;
+}

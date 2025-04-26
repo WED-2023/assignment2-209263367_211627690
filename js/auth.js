@@ -1,7 +1,8 @@
 // js/auth.js – Registration, Login & Nav‑Toggle logic
 
 import { showScreen } from './utils.js';
-import { clearPlayerHistory } from './game.js';
+import { stopGameAudio, clearPlayerHistory } from './game.js'; 
+
 const USERS_KEY        = 'gi_users';
 const CURRENT_USER_KEY = 'gi_current_user';
 
@@ -150,6 +151,7 @@ function handleLogin(e) {
 // Wire up nav buttons and About dialog
 document.querySelectorAll('nav button[data-screen]').forEach(btn => {
   btn.addEventListener('click', () => {
+    stopGameAudio();
     if (btn.dataset.screen === 'about') {
       document.getElementById('aboutDialog').showModal();
     } else {
@@ -170,12 +172,13 @@ updateNav();
 
 
 navLogout.addEventListener('click', () => {
+  stopGameAudio();
   const CURRENT_USER_KEY = 'gi_current_user';
   const user = localStorage.getItem(CURRENT_USER_KEY);
 
   if (user) {
-    clearPlayerHistory(user); // תמחק את ההיסטוריה
-    localStorage.removeItem(CURRENT_USER_KEY); // תמחק את המשתמש המחובר
+    clearPlayerHistory(user);
+    localStorage.removeItem(CURRENT_USER_KEY);
   }
 
   updateNav();
