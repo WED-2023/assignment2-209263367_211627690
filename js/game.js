@@ -18,7 +18,18 @@ let globalConf = {}; // at top
 // — preload assets —
 window.endAudio = null;
 const eggImg   = new Image(); eggImg.src   = 'assets/img/egg.png';
-const enemyImg = new Image(); enemyImg.src = 'assets/img/enemy.png';
+
+const enemyImgs = [
+  new Image(), // Row 0 - Blue
+  new Image(), // Row 1 - Red
+  new Image(), // Row 2 - Green
+  new Image()  // Row 3 - Yellow
+];
+enemyImgs[0].src = 'assets/img/enemy_blue.png';
+enemyImgs[1].src = 'assets/img/enemy_red.png';
+enemyImgs[2].src = 'assets/img/enemy_green.png';
+enemyImgs[3].src = 'assets/img/enemy_yellow.png';
+
 let playerImg = new Image();
 let themeAudio = null;
 // — canvas & HUD —
@@ -229,9 +240,9 @@ function render() {
   enemies.forEach(e => {
     if (!e.alive) return;
     const x = e.baseX + fleetOffset;
-    ctx.drawImage(enemyImg, x, e.y, ENEMY_W, ENEMY_H);
+    ctx.drawImage(enemyImgs[e.row], x, e.y, ENEMY_W, ENEMY_H);
   });
-
+  
   // player bullets
   ctx.fillStyle = 'white';
   playerShots.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
