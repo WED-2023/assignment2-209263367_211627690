@@ -28,7 +28,6 @@ The site includes:
 - An "About" screen (Modal dialog)
 
 Additional features beyond basic requirements:
-- Boss ships appear after defeating all enemies, requiring multiple hits to destroy.
 - Background video during gameplay (`wallpaper.mp4`)
 - Background music playing during the game
 - Automatic stopping of music when switching screens
@@ -49,8 +48,6 @@ Additional features beyond basic requirements:
 ## 🔗 GitHub Pages Deployment
 
 > [Click here to visit the live site](https://wed-2023.github.io/assignment2-209263367_211627690/)
-
-(**Please replace with your actual GitHub Pages link**)
 
 ---
 
