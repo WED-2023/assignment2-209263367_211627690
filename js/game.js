@@ -1,6 +1,17 @@
 // js/game.js
 import { showScreen, createElement } from './utils.js';
 
+export function stopGameAudio() {
+  if (themeAudio) {
+    themeAudio.pause();
+    themeAudio.currentTime = 0;
+  }
+  if (window.endAudio) {
+    window.endAudio.pause();
+    window.endAudio.currentTime = 0;
+  }
+}
+
 let globalConf = {}; // at top
 
 

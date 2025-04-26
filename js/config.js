@@ -1,20 +1,10 @@
-// js/config.js – Game configuration screen
-// -------------------------------------------------------------
-// Responsibilities:
-//  * Ensure user is logged in
-//  * Let user choose shoot key, game duration, (optional) colors
-//  * Start the game by calling startGame(conf) from game.js
-//  * Provide New Game button inside game screen to return here
-// -------------------------------------------------------------
+// === config.js ===
 
 import { showScreen } from './utils.js';
 import { startGame } from './game.js';
 
 const CURRENT_USER_KEY = 'gi_current_user';
 
-/* ============================================================
-   Inject configuration form markup
-   ============================================================ */
 const cfgSec = document.getElementById('config');
 cfgSec.innerHTML = `
   <h2>Game Configuration</h2>
@@ -42,10 +32,6 @@ cfgSec.innerHTML = `
   </form>`;
 
 
-/* ============================================================
-   Form submission – start the game
-   ============================================================ */
-
 document.getElementById('configForm').addEventListener('submit', e => {
   e.preventDefault();
   if (!isLoggedIn()) {
@@ -61,18 +47,17 @@ document.getElementById('configForm').addEventListener('submit', e => {
   };
 
   startGame(conf);
+  showScreen('game');
+
+  // scroll to game screen
+  setTimeout(() => {
+    document.getElementById('game')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
 });
 
-/* ============================================================
-   Helper – check login state
-   ============================================================ */
 function isLoggedIn() {
   return !!localStorage.getItem(CURRENT_USER_KEY);
 }
-
-/* ============================================================
-   New Game button (visible inside game screen)
-   ============================================================ */
 
 document.getElementById('newGameBtn').addEventListener('click', () => {
   showScreen('config');
