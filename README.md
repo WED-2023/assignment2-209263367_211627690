@@ -38,8 +38,11 @@ Additional features beyond basic requirements:
 
 ## 👥 Developers Information
 
-- Name: [Insert Your Full Name(s)]
-- ID Numbers: [Insert Your ID Numbers, e.g., 123456789, 987654321]
+- Name: [Asaf Zenou]
+- ID Numbers: [209263367]
+
+- Name: [Hagai Astrin]
+- ID Numbers: [211627690]
 
 ---
 
