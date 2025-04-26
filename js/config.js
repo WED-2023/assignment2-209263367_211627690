@@ -16,7 +16,7 @@ cfgSec.innerHTML = `
       </select>
     </label>
 
-    <label>Game duration (seconds, min 120):
+    <label>Game duration (seconds, min 120):
       <input type="number" id="duration" min="120" value="120" required>
     </label>
 
@@ -28,7 +28,7 @@ cfgSec.innerHTML = `
       </select>
     </label>
 
-    <button id="startBtn">Start Game</button>
+    <button id="startBtn">Start Game</button>
   </form>`;
 
 

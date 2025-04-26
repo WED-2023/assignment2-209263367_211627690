@@ -62,7 +62,7 @@ registerSec.innerHTML = `
     <input name="lastName"  placeholder="Last Name" required>
     <input type="email" name="email" placeholder="Email" required>
     <input type="date"  name="dob" required>
-    <button>Sign Up</button>
+    <button>Sign Up</button>
   </form>
   <p id="regError" class="error"></p>
 `;
