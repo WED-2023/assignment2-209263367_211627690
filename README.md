@@ -38,11 +38,11 @@ Additional features beyond basic requirements:
 
 ## 👥 Developers Information
 
-- Name: [Asaf Zenou]
-- ID Numbers: [209263367]
-
-- Name: [Hagai Astrin]
-- ID Numbers: [211627690]
+- Name: Asaf Zenou
+- ID Number: 209263367
+  
+- Name: Hagai Astrin
+- ID Number: 211627690
 
 ---
 
